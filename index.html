@@ -3,18 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DevHub Chat</title>
+    <title>DevHub</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💬</text></svg>">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-okaidia.min.css" rel="stylesheet" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
 </head>
 <body>
 
     <nav class="top-nav">
-        <div class="nav-title">DevHub</div>
+        <div class="nav-title">⚡ DevHub</div>
         <div class="nav-links">
-            <a href="#" id="nav-chatroom" class="active">Chatroom</a>
-            <a href="#" id="nav-posts">All Posts</a>
+            <a href="#" id="nav-coderoom" class="active">Coderoom</a>
+            <a href="#" id="nav-chatroom">Chatroom</a>
         </div>
         <div class="nav-actions">
             <button id="create-post-btn">Create Post</button>
@@ -23,9 +23,29 @@
     </nav>
 
     <main id="app-container">
-        <div id="chatroom-view" class="view active">
-            <div id="chat-feed">
-                </div>
+        <div id="coderoom-subjects-view" class="view active">
+            <div class="view-header"><h1>Subjects</h1></div>
+            <div id="subjects-grid" class="coderoom-grid"></div>
+        </div>
+
+        <div id="coderoom-posts-view" class="view">
+            <div class="view-header">
+                <button id="back-to-subjects-btn">&larr; All Subjects</button>
+                <h1 id="posts-view-title">Posts</h1>
+            </div>
+            <div class="post-list-controls">
+                <input type="text" id="post-search-bar" placeholder="Search posts...">
+                <select id="post-sort-select">
+                    <option value="newest">Newest First</option>
+                    <option value="oldest">Oldest First</option>
+                    <option value="number">By Post Number</option>
+                </select>
+            </div>
+            <ul id="post-list"></ul>
+        </div>
+
+        <div id="chatroom-view" class="view">
+            <div id="chat-feed"></div>
             <div id="reply-indicator"></div>
             <form id="chat-input-form">
                 <input type="text" id="chat-message-input" placeholder="Type a message..." autocomplete="off" required>
@@ -33,13 +53,8 @@
             </form>
         </div>
 
-        <div id="all-posts-view" class="view">
-            <div class="view-header"><h1>All Code Posts</h1></div>
-            <div id="posts-grid"></div>
-        </div>
-
         <div id="single-post-view" class="view">
-            <div class="view-header"><button id="back-to-chat-btn">&larr; Back to Chatroom</button></div>
+             <div class="view-header"><button id="back-to-posts-btn">&larr; Back to Posts</button></div>
             <div id="post-detail-content"></div>
             <div id="comments-section">
                 <h2>Comments</h2>
@@ -58,7 +73,8 @@
             <h2>Create a New Post</h2>
             <form id="post-form">
                 <div class="form-group"><label for="post-title">Title</label><input type="text" id="post-title" required></div>
-                <div class="form-group"><label for="post-subject">Subject</label><input type="text" id="post-subject" required></div>
+                <div class="form-group"><label for="post-subject">Subject (e.g., JavaScript)</label><input type="text" id="post-subject" required></div>
+                <div class="form-group"><label for="post-number">Post Number (for ordering)</label><input type="number" id="post-number" required></div>
                 <div class="form-group"><label for="post-description">Description</label><textarea id="post-description" rows="3"></textarea></div>
                 <div class="form-group"><label for="post-code">Code Snippet</label><textarea id="post-code" rows="10" required></textarea></div>
                 <button type="submit">Publish Post</button>
@@ -66,8 +82,6 @@
         </div>
     </div>
     
-    <div id="copy-notification">Code copied!</div>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
     <script src="script.js"></script>
