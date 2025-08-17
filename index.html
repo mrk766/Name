@@ -3,137 +3,64 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CodeFlow - Anonymous Code & Chat</title>
-    
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    
-    <script src="https://unpkg.com/feather-icons"></script>
-    
-    <link rel="stylesheet" href="styles.css">
+    <title>DevHub Chat</title>
+    <link rel="stylesheet" href="style.css"> 
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💬</text></svg>">
 </head>
 <body>
-
-    <div class="app-container">
-
-        <header class="app-header">
-            <div class="logo">
-                <i data-feather="code"></i>
-                <h1>CodeFlow</h1>
+    <nav class="top-nav">
+        <div class="nav-title">DevHub</div>
+        <div class="nav-links">
+            <a href="#" id="nav-chatroom" class="active">Chatroom</a>
+            <a href="#" id="nav-posts">All Posts</a>
+        </div>
+        <div class="nav-actions">
+            <button id="create-post-btn">Create Post</button>
+            <button id="theme-toggle" title="Toggle Theme">🌙</button>
+        </div>
+    </nav>
+    <main id="app-container">
+        <div id="chatroom-view" class="view active">
+            <div id="chat-feed"></div>
+            <form id="chat-input-form">
+                <input type="text" id="chat-message-input" placeholder="Type a message..." autocomplete="off" required>
+                <button type="submit" title="Send Message">Send</button>
+            </form>
+        </div>
+        <div id="all-posts-view" class="view">
+            <div class="view-header"><h1>All Code Posts</h1></div>
+            <div id="posts-grid"></div>
+        </div>
+        <div id="single-post-view" class="view">
+            <div class="view-header"><button id="back-to-chat-btn">&larr; Back to Chatroom</button></div>
+            <div id="post-detail-content"></div>
+            <div id="comments-section">
+                <h2>Comments</h2>
+                <div id="post-comments-feed"></div>
+                <form id="comment-form">
+                    <textarea id="comment-input" placeholder="Add a comment..." required rows="3"></textarea>
+                    <button type="submit">Post Comment</button>
+                </form>
             </div>
-            <div class="search-bar">
-                <i data-feather="search"></i>
-                <input type="search" placeholder="Search by title or subject...">
-            </div>
-        </header>
-
-        <aside class="panel subject-selection-panel">
-            <h2 class="panel-title">Select Subject</h2>
-            <div class="custom-dropdown">
-                <button class="dropdown-toggle" aria-haspopup="true" aria-expanded="false">
-                    <span>JavaScript</span>
-                    <i data-feather="chevron-down"></i>
-                </button>
-                <ul class="dropdown-menu">
-                    <li><a href="#">JavaScript</a></li>
-                    <li><a href="#">Project 24</a></li>
-                    <li><a href="#">Python</a></li>
-                    <li><a href="#">DSA</a></li>
-                </ul>
-            </div>
-
-            <h3 class="sub-heading">All Posts</h3>
-            <ul class="post-list">
-                <li tabindex="0" data-code="const greet = () => console.log('Hello, anonymous world!');">Fix: Async race condition in user fetch</li>
-                <li tabindex="0" data-code="def quick_sort(arr):&#10;    if len(arr) <= 1: return arr&#10;    pivot = arr[len(arr) // 2]&#10;    # ... (rest of the code)">Python: Quick Sort Implementation</li>
-                <li tabindex="0" data-code="struct Node { int data; struct Node* next; };">DSA: Linked List Node in C</li>
-            </ul>
-        </aside>
-
-        <main class="panel composer-panel">
-            <div class="mode-toggle">
-                <label for="mode-switch" class="toggle-label">Post Mode</label>
-                <label class="switch">
-                    <input type="checkbox" id="mode-switch">
-                    <span class="slider"></span>
-                </label>
-                <label for="mode-switch" class="toggle-label">Comment Mode</label>
-            </div>
-
-            <div id="post-mode" class="composer-form is-active">
-                <input type="text" class="form-input" placeholder="Post Title">
-                <select class="form-input">
-                    <option disabled selected>Select or create a subject</option>
-                    <option>JavaScript</option>
-                    <option>Python</option>
-                    <option>DSA</option>
-                    <option>Project 24</option>
-                    <option value="new">-- Add New Subject --</option>
-                </select>
-                <textarea class="form-input code-input" placeholder="< / > Paste your code snippet here..."></textarea>
-                <textarea class="form-input description-input" placeholder="Optional description..."></textarea>
-                <button class="cta-button">
-                    <i data-feather="send"></i>
-                    <span>Post Anonymously</span>
-                </button>
-            </div>
-        </main>
-
-        <section class="panel chatroom-panel">
-            <h2 class="panel-title">Open Chatroom</h2>
-            <div class="chat-feed">
-                <div class="chat-entry message">
-                    <div class="message-content">
-                        <p>Anyone have a good resource for learning recursion in Python? The one in the post is a bit advanced.</p>
-                    </div>
-                    <span class="tag tag-python">Python</span>
-                </div>
-
-                <div class="chat-entry post-share">
-                    <div class="post-header">
-                        <strong class="post-title">New Post: Python: Quick Sort Implementation</strong>
-                        <span class="tag tag-python">Python</span>
-                    </div>
-                    <details class="post-preview">
-                        <summary>Click to view code</summary>
-                        <pre><code>def quick_sort(arr):
-    if len(arr) <= 1: return arr
-    # ...</code></pre>
-                    </details>
-                </div>
-
-                <div class="chat-entry message">
-                    <div class="message-content">
-                        <p>For JS devs, remember that `let` and `const` have block scope, not function scope like `var`. Avoids a lot of bugs!</p>
-                    </div>
-                     <span class="tag tag-javascript">JavaScript</span>
-                </div>
-                
-                 <div class="chat-entry message">
-                    <div class="message-content">
-                        <p>Working on Project 24, deadline is tight! Good luck everyone.</p>
-                    </div>
-                     <span class="tag tag-project">Project 24</span>
-                </div>
-            </div>
-            
-            <div class="chat-input-bar">
-                <input type="text" id="comment-input" placeholder="Type an anonymous message..." disabled>
-                <button disabled><i data-feather="send"></i></button>
-            </div>
-        </section>
-
+        </div>
+    </main>
+    <div id="post-modal" class="modal-overlay">
+        <div class="modal-content">
+            <button class="modal-close" title="Close">&times;</button>
+            <h2>Create a New Post</h2>
+            <form id="post-form">
+                <div class="form-group"><label for="post-title">Title</label><input type="text" id="post-title" required></div>
+                <div class="form-group"><label for="post-subject">Subject (e.g., javascript, python)</label><input type="text" id="post-subject" required></div>
+                <div class="form-group"><label for="post-description">Description</label><textarea id="post-description" rows="3"></textarea></div>
+                <div class="form-group"><label for="post-code">Code Snippet</label><textarea id="post-code" rows="10" required></textarea></div>
+                <button type="submit">Publish Post</button>
+            </form>
+        </div>
     </div>
-
-    <div id="copy-toast" class="toast">
-        <i data-feather="check-circle"></i>
-        <span>Copied to clipboard!</span>
-    </div>
-
-    <script>
-        // Activate feather icons on page load
-        feather.replace();
-    </script>
+    <div id="copy-notification">Code copied!</div>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>
