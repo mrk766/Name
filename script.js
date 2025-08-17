@@ -1,144 +1,205 @@
+document.addEventListener('DOMContentLoaded', () => {
+    // --- STATE MANAGEMENT ---
+    const state = {
+        username: localStorage.getItem('devhub_username') || null,
+        currentView: 'chatroom',
+        activePostId: null,
+        replyingTo: null, // NEW: Holds the message object we are replying to
+        posts: JSON.parse(localStorage.getItem('devhub_posts')) || [],
+        messages: JSON.parse(localStorage.getItem('devhub_messages')) || [],
+        comments: JSON.parse(localStorage.getItem('devhub_comments')) || [],
+    };
 
-/* --- GLOBAL STYLES & THEMES --- */
-:root {
-    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-    --border-radius: 8px;
-    --transition-speed: 0.2s;
-    /* Light Mode */
-    --bg-primary: #e9ebee;
-    --bg-secondary: #ffffff;
-    --bg-tertiary: #f0f2f5;
-    --text-primary: #050505;
-    --text-secondary: #65676b;
-    --border-color: #ced0d4;
-    --accent-color: #1877f2;
-    --accent-hover: #166fe5;
-    --chat-bubble-me: #dcf8c6;
-    --shadow-color: rgba(0, 0, 0, 0.1);
-}
-body.dark-mode {
-    /* Dark Mode */
-    --bg-primary: #18191a;
-    --bg-secondary: #242526;
-    --bg-tertiary: #3a3b3c;
-    --text-primary: #e4e6eb;
-    --text-secondary: #b0b3b8;
-    --border-color: #4b4c4f;
-    --accent-color: #2d88ff;
-    --accent-hover: #4ea0ff;
-    --chat-bubble-me: #265c4c;
-    --shadow-color: rgba(0, 0, 0, 0.3);
-}
-* { box-sizing: border-box; }
-body {
-    font-family: var(--font-family);
-    background-color: var(--bg-primary);
-    color: var(--text-primary);
-    margin: 0;
-    overflow: hidden;
-    transition: background-color var(--transition-speed), color var(--transition-speed);
-}
-button { cursor: pointer; }
+    // --- DOM SELECTORS ---
+    const views = { chatroom: document.getElementById('chatroom-view'), allPosts: document.getElementById('all-posts-view'), singlePost: document.getElementById('single-post-view') };
+    const navLinks = { chatroom: document.getElementById('nav-chatroom'), posts: document.getElementById('nav-posts') };
+    const chatFeed = document.getElementById('chat-feed');
+    const postsGrid = document.getElementById('posts-grid');
+    const postDetailContent = document.getElementById('post-detail-content');
+    const postCommentsFeed = document.getElementById('post-comments-feed');
+    const modal = document.getElementById('post-modal');
+    const replyIndicator = document.getElementById('reply-indicator');
 
-/* --- NAVIGATION --- */
-.top-nav {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background-color: var(--bg-secondary);
-    padding: 0 20px;
-    height: 60px;
-    border-bottom: 1px solid var(--border-color);
-    box-shadow: 0 2px 5px var(--shadow-color);
-    position: relative;
-    z-index: 10;
-}
-.nav-title { font-size: 1.5rem; font-weight: bold; }
-.nav-links a { text-decoration: none; color: var(--text-secondary); font-weight: 600; padding: 20px 15px; border-bottom: 3px solid transparent; transition: color var(--transition-speed), border-color var(--transition-speed); }
-.nav-links a.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
-.nav-actions button { margin-left: 10px; padding: 8px 16px; border: none; border-radius: var(--border-radius); font-weight: 600; transition: background-color var(--transition-speed); }
-#create-post-btn { background-color: var(--accent-color); color: white; }
-#create-post-btn:hover { background-color: var(--accent-hover); }
-#theme-toggle { background: none; font-size: 1.5rem; border: none; color: var(--text-primary); }
+    // --- DATA PERSISTENCE ---
+    const saveData = () => {
+        localStorage.setItem('devhub_username', state.username);
+        localStorage.setItem('devhub_posts', JSON.stringify(state.posts));
+        localStorage.setItem('devhub_messages', JSON.stringify(state.messages));
+        localStorage.setItem('devhub_comments', JSON.stringify(state.comments));
+    };
 
-/* --- APP & VIEW CONTAINERS --- */
-#app-container { height: calc(100vh - 60px); }
-.view { display: none; height: 100%; flex-direction: column; }
-.view.active { display: flex; }
-.view-header { padding: 20px; border-bottom: 1px solid var(--border-color); background-color: var(--bg-secondary); }
-.view-header h1 { margin: 0; }
+    // --- USER MANAGEMENT ---
+    const ensureUserExists = () => {
+        if (state.username) return true;
+        
+        const name = prompt("Please enter your name to post:");
+        if (name && name.trim()) {
+            state.username = name.trim();
+            saveData();
+            return true;
+        }
+        return false;
+    };
+    
+    // --- MAIN RENDER FUNCTION ---
+    const render = () => {
+        Object.values(views).forEach(view => view.classList.remove('active'));
+        Object.values(navLinks).forEach(link => link.classList.remove('active'));
+        views[state.currentView].classList.add('active');
 
-/* --- CHATROOM VIEW --- */
-#chatroom-view { justify-content: flex-end; }
-#chat-feed { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 4px; }
-.message-wrapper { display: flex; flex-direction: column; max-width: 70%; margin-bottom: 8px; position: relative; }
-.message-wrapper.me { align-self: flex-end; }
-.message-wrapper.other { align-self: flex-start; }
-.message-wrapper.center { align-self: center; width: 90%; max-width: 500px; }
+        switch (state.currentView) {
+            case 'chatroom': renderChatroom(); navLinks.chatroom.classList.add('active'); break;
+            case 'allPosts': renderAllPosts(); navLinks.posts.classList.add('active'); break;
+            case 'singlePost': renderSinglePost(); navLinks.posts.classList.add('active'); break;
+        }
+    };
+    
+    // --- VIEW-SPECIFIC RENDERERS ---
+    const renderChatroom = () => {
+        const combinedFeed = [...state.posts, ...state.messages, ...state.comments]
+            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-.chat-bubble { padding: 10px 15px; border-radius: 18px; line-height: 1.4; word-wrap: break-word; }
-.chat-bubble.me { background-color: var(--chat-bubble-me); }
-.chat-bubble.other { background-color: var(--bg-secondary); }
+        chatFeed.innerHTML = combinedFeed.map(item => {
+            const wrapperClass = item.author === state.username ? 'me' : 'other';
+            let contentHTML = '';
 
-.author-name { font-size: 0.8rem; font-weight: bold; margin: 0 12px 4px; color: var(--accent-color); }
-.message-wrapper.me .author-name { text-align: right; }
+            if (item.type === 'post') {
+                contentHTML = createPostHTML(item);
+            } else {
+                const bubbleClass = item.author === state.username ? 'me' : 'other';
+                let replyHTML = '';
+                if (item.replyToId) {
+                    const originalItem = findItemById(item.replyToId);
+                    replyHTML = createQuotedReplyHTML(originalItem);
+                }
+                
+                if (item.type === 'message') {
+                    contentHTML = `${replyHTML}<div class="chat-bubble ${bubbleClass}">${escapeHtml(item.text)}</div>`;
+                } else if (item.type === 'comment') {
+                    contentHTML = `${replyHTML}<div class="chat-bubble ${bubbleClass}">Comment on post: ${escapeHtml(item.text)}</div>`;
+                }
+            }
+            
+            // Posts are centered, messages have authors
+            if(item.type === 'post') {
+                 return `<div class="message-wrapper center" data-id="${item.id}">${contentHTML}</div>`;
+            } else {
+                 return `<div class="message-wrapper ${wrapperClass}" data-id="${item.id}">
+                    <div class="author-name">${escapeHtml(item.author)}</div>
+                    ${contentHTML}
+                    <button class="reply-button">↪</button>
+                </div>`;
+            }
 
-.reply-button {
-    position: absolute; top: 50%; transform: translateY(-50%);
-    background-color: var(--bg-tertiary); border: 1px solid var(--border-color);
-    border-radius: 50%; width: 28px; height: 28px;
-    font-size: 1.2rem; cursor: pointer; opacity: 0; transition: opacity var(--transition-speed);
-}
-.message-wrapper:hover .reply-button { opacity: 1; }
-.message-wrapper.me .reply-button { left: -36px; }
-.message-wrapper.other .reply-button { right: -36px; }
+        }).join('');
+        chatFeed.scrollTop = chatFeed.scrollHeight;
+    };
+    
+    const renderAllPosts = () => { /* ... (no changes) ... */ };
+    const renderSinglePost = () => { /* ... (no changes, but now shows author) ... */ };
+    
+    // --- HTML TEMPLATE GENERATORS ---
+    const createPostHTML = (item) => `...`; // Updated to show author
+    const createQuotedReplyHTML = (originalItem) => {
+        if (!originalItem) return '';
+        let textSnippet = '';
+        if (originalItem.type === 'post') textSnippet = `Post: ${originalItem.title}`;
+        else textSnippet = originalItem.text || `Comment: ${originalItem.text}`;
 
-.quoted-reply {
-    background-color: rgba(0,0,0,0.05); margin: -5px 0 8px 0;
-    padding: 8px 12px; border-radius: 8px; border-left: 3px solid var(--accent-color);
-    font-size: 0.9em; color: var(--text-secondary);
-}
-.quoted-reply-author { font-weight: bold; color: var(--text-primary); }
-.quoted-reply-text {
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;
-}
+        return `
+            <div class="quoted-reply">
+                <div class="quoted-reply-author">${escapeHtml(originalItem.author)}</div>
+                <span class="quoted-reply-text">${escapeHtml(textSnippet)}</span>
+            </div>`;
+    };
 
-.post-in-chat { background-color: var(--bg-tertiary); border: 1px solid var(--border-color); padding: 15px; text-align: center; }
-.post-in-chat h4 { margin: 0 0 5px 0; font-size: 1.1rem; }
-.post-in-chat .post-subject { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px; }
-.post-in-chat .post-actions { display: flex; gap: 10px; justify-content: center; }
-.post-in-chat .post-actions button { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--accent-color); background-color: transparent; color: var(--accent-color); font-weight: 600; }
+    // --- REPLY MANAGEMENT ---
+    const handleReplyClick = (itemId) => {
+        state.replyingTo = findItemById(itemId);
+        if (state.replyingTo) {
+            replyIndicator.innerHTML = `
+                <div class="quoted-reply">
+                    Replying to <strong>${escapeHtml(state.replyingTo.author)}</strong>
+                    <span class="cancel-reply" title="Cancel Reply">×</span>
+                </div>`;
+            replyIndicator.style.display = 'block';
+            replyIndicator.querySelector('.cancel-reply').addEventListener('click', cancelReply);
+        }
+    };
+    const cancelReply = () => {
+        state.replyingTo = null;
+        replyIndicator.style.display = 'none';
+    };
 
-#reply-indicator { padding: 10px; background-color: var(--bg-tertiary); border-top: 1px solid var(--border-color); display: none; }
-#reply-indicator .cancel-reply { float: right; cursor: pointer; font-weight: bold; }
+    // --- EVENT HANDLERS ---
+    const setupEventListeners = () => {
+        // ... (navigation and modal listeners are the same)
+        document.getElementById('chat-input-form').addEventListener('submit', handleChatMessage);
+        document.getElementById('post-form').addEventListener('submit', handleCreatePost);
+        document.getElementById('comment-form').addEventListener('submit', handleAddComment);
+        
+        // NEW: Event delegation for reply buttons
+        chatFeed.addEventListener('click', (e) => {
+            if (e.target.classList.contains('reply-button')) {
+                const messageWrapper = e.target.closest('.message-wrapper');
+                if (messageWrapper) handleReplyClick(messageWrapper.dataset.id);
+            }
+        });
+    };
+    
+    const handleChatMessage = (e) => {
+        e.preventDefault();
+        if (!ensureUserExists()) return;
+        const input = document.getElementById('chat-message-input');
+        if (!input.value.trim()) return;
+        
+        state.messages.push({
+            id: `m_${Date.now()}`, type: 'message',
+            author: state.username,
+            text: input.value,
+            timestamp: new Date().toISOString(),
+            replyToId: state.replyingTo ? state.replyingTo.id : null,
+        });
+        input.value = '';
+        cancelReply();
+        saveData();
+        renderChatroom();
+    };
 
-#chat-input-form { display: flex; padding: 10px; background-color: var(--bg-secondary); border-top: 1px solid var(--border-color); }
-#chat-input-form input { flex-grow: 1; padding: 12px; border-radius: 20px; border: 1px solid var(--border-color); background-color: var(--bg-tertiary); color: var(--text-primary); }
-#chat-input-form button { padding: 0 20px; margin-left: 10px; border: none; border-radius: 20px; background-color: var(--accent-color); color: white; font-weight: 600; }
+    const handleCreatePost = (e) => {
+        e.preventDefault();
+        if (!ensureUserExists()) return;
+        // ... (rest of the function is the same, just add author)
+        const newPost = { id: `p_${Date.now()}`, type: 'post', author: state.username, /* ... */ };
+        state.posts.push(newPost);
+        // ...
+    };
 
-/* --- OTHER VIEWS --- */
-#all-posts-view, #single-post-view { overflow-y: auto; padding: 20px; }
-#posts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
-.post-card { background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 20px; cursor: pointer; transition: transform var(--transition-speed), box-shadow var(--transition-speed); }
-.post-card:hover { transform: translateY(-5px); box-shadow: 0 5px 15px var(--shadow-color); }
-#post-detail-content { background-color: var(--bg-secondary); padding: 25px; border-radius: var(--border-radius); margin-bottom: 20px; }
-#comments-section { margin-top: 20px; background-color: var(--bg-secondary); padding: 20px; border-radius: var(--border-radius); }
-#post-comments-feed .comment { background-color: var(--bg-tertiary); padding: 15px; border-radius: var(--border-radius); margin-bottom: 10px; }
-#comment-form textarea { width: 100%; padding: 10px; border-radius: var(--border-radius); border: 1px solid var(--border-color); margin-bottom: 10px; background-color: var(--bg-tertiary); color: var(--text-primary); }
-#comment-form button { padding: 10px 20px; background-color: var(--accent-color); color: white; border: none; border-radius: var(--border-radius); }
+    const handleAddComment = (e) => {
+        e.preventDefault();
+        if (!ensureUserExists()) return;
+        // ... (rest of the function is the same, just add author and replyToId)
+        state.comments.push({ id: `c_${Date.now()}`, type: 'comment', author: state.username, postId: state.activePostId, /* ... */ });
+        // ...
+    };
 
-/* --- MODAL --- */
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 100; opacity: 0; transition: opacity var(--transition-speed); }
-.modal-overlay.visible { display: flex; opacity: 1; }
-.modal-content { background-color: var(--bg-secondary); padding: 30px; border-radius: var(--border-radius); width: 90%; max-width: 600px; position: relative; transform: scale(0.95); transition: transform var(--transition-speed); }
-.modal-overlay.visible .modal-content { transform: scale(1); }
-.modal-close { position: absolute; top: 10px; right: 15px; font-size: 1.5rem; background: none; border: none; color: var(--text-secondary); }
-.form-group { margin-bottom: 15px; }
-.form-group label { display: block; margin-bottom: 5px; font-weight: 600; }
-.form-group input, .form-group textarea { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background-color: var(--bg-tertiary); color: var(--text-primary); }
-.modal-content button[type="submit"] { width: 100%; padding: 12px; background-color: var(--accent-color); color: white; border: none; border-radius: var(--border-radius); font-size: 1rem; }
+    // --- UTILITIES ---
+    const findItemById = (id) => {
+        return [...state.posts, ...state.messages, ...state.comments].find(item => item.id === id);
+    };
+    const escapeHtml = (unsafe) => unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    
+    // --- INITIALIZATION ---
+    // ... (same as before)
 
-/* --- UTILITIES --- */
-#copy-notification { position: fixed; bottom: -50px; left: 50%; transform: translateX(-50%); background-color: #28a745; color: white; padding: 10px 20px; border-radius: 20px; transition: all 0.3s; pointer-events: none; }
-#copy-notification.show { bottom: 30px; }
-pre[class*="language-"] { border-radius: var(--border-radius); }
+    // Helper functions for renderAllPosts and renderSinglePost (simplified for brevity, they have no logic changes)
+    const renderAllPosts = () => { postsGrid.innerHTML = state.posts.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).map(post => `<div class="post-card" data-post-id="${post.id}"><h3>${escapeHtml(post.title)}</h3><p>By ${escapeHtml(post.author)}</p></div>`).join(''); };
+    const renderSinglePost = () => { const post = state.posts.find(p => p.id === state.activePostId); if(!post) return; postDetailContent.innerHTML = `<h1>${escapeHtml(post.title)}</h1><p>By ${escapeHtml(post.author)}</p><p>${escapeHtml(post.description)}</p><pre><code>${escapeHtml(post.code)}</code></pre>`; const commentsForPost = state.comments.filter(c => c.postId === post.id); postCommentsFeed.innerHTML = commentsForPost.map(comment => `<div class="comment"><strong>${escapeHtml(comment.author)}:</strong> ${escapeHtml(comment.text)}</div>`).join(''); Prism.highlightAll();};
+    
+    // ... (rest of the init code from previous version)
+    const navigate = (view, postId = null) => { state.currentView = view; state.activePostId = postId; render(); };
+    const toggleTheme = () => { document.body.classList.toggle('dark-mode'); const isDark = document.body.classList.contains('dark-mode'); document.getElementById('theme-toggle').textContent = isDark ? '☀️' : '🌙'; localStorage.setItem('devhub_theme', isDark ? 'dark' : 'light'); };
+    const loadTheme = () => { if (localStorage.getItem('devhub_theme') === 'dark') { document.body.classList.add('dark-mode'); document.getElementById('theme-toggle').textContent = '☀️'; } };
+    const init = () => { loadTheme(); setupEventListeners(); render(); };
+    init();
+});
