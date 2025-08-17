@@ -4,11 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DevHub Chat</title>
-    <link rel="stylesheet" href="style.css"> 
+    <link rel="stylesheet" href="style.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💬</text></svg>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💬</text></svg>">
 </head>
 <body>
+
     <nav class="top-nav">
         <div class="nav-title">DevHub</div>
         <div class="nav-links">
@@ -20,18 +21,23 @@
             <button id="theme-toggle" title="Toggle Theme">🌙</button>
         </div>
     </nav>
+
     <main id="app-container">
         <div id="chatroom-view" class="view active">
-            <div id="chat-feed"></div>
+            <div id="chat-feed">
+                </div>
+            <div id="reply-indicator"></div>
             <form id="chat-input-form">
                 <input type="text" id="chat-message-input" placeholder="Type a message..." autocomplete="off" required>
                 <button type="submit" title="Send Message">Send</button>
             </form>
         </div>
+
         <div id="all-posts-view" class="view">
             <div class="view-header"><h1>All Code Posts</h1></div>
             <div id="posts-grid"></div>
         </div>
+
         <div id="single-post-view" class="view">
             <div class="view-header"><button id="back-to-chat-btn">&larr; Back to Chatroom</button></div>
             <div id="post-detail-content"></div>
@@ -45,20 +51,23 @@
             </div>
         </div>
     </main>
+
     <div id="post-modal" class="modal-overlay">
         <div class="modal-content">
             <button class="modal-close" title="Close">&times;</button>
             <h2>Create a New Post</h2>
             <form id="post-form">
                 <div class="form-group"><label for="post-title">Title</label><input type="text" id="post-title" required></div>
-                <div class="form-group"><label for="post-subject">Subject (e.g., javascript, python)</label><input type="text" id="post-subject" required></div>
+                <div class="form-group"><label for="post-subject">Subject</label><input type="text" id="post-subject" required></div>
                 <div class="form-group"><label for="post-description">Description</label><textarea id="post-description" rows="3"></textarea></div>
                 <div class="form-group"><label for="post-code">Code Snippet</label><textarea id="post-code" rows="10" required></textarea></div>
                 <button type="submit">Publish Post</button>
             </form>
         </div>
     </div>
+    
     <div id="copy-notification">Code copied!</div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
     <script src="script.js"></script>
