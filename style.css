@@ -112,7 +112,6 @@ button {
 /* Chatroom */
 #chatroom-view {
   flex-direction: column;
-  justify-content: flex-end;
 }
 
 #chat-feed {
@@ -125,15 +124,56 @@ button {
 }
 
 .chat-message {
-  max-width: 70%;
+  position: relative;
+  max-width: 80%;
   padding: 10px 15px;
   background: var(--bg-secondary);
   border-radius: 16px;
 }
 
-.chat-message.me {
-  background: var(--chat-me);
-  align-self: flex-end;
+.chat-message p {
+  margin: 0;
+}
+
+.activity-post,
+.activity-comment {
+  position: relative;
+  background: var(--bg-secondary);
+  padding: 15px;
+  border-radius: var(--radius);
+  box-shadow: 0 1px 3px var(--shadow);
+}
+
+.activity-post h4,
+.activity-comment p {
+  margin: 5px 0;
+}
+
+.reply-quote {
+  font-style: italic;
+  color: var(--text-light);
+  margin-bottom: 5px;
+}
+
+.timestamp {
+  display: block;
+  font-size: 0.8em;
+  color: var(--text-light);
+  margin-bottom: 5px;
+}
+
+.delete-btn {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  background: transparent;
+  border: none;
+  color: var(--text-light);
+  font-size: 0.8em;
+}
+
+.delete-btn:hover {
+  color: red;
 }
 
 #chat-input-form {
@@ -194,7 +234,8 @@ button {
   transition: background var(--speed);
 }
 
-#subject-list li:hover {
+#subject-list li:hover,
+#subject-list li.active {
   background: var(--bg-tertiary);
 }
 
@@ -218,7 +259,8 @@ button {
   margin-bottom: 15px;
 }
 
-#post-search {
+#post-search,
+#chat-search {
   flex-grow: 1;
   padding: 8px;
   border: 1px solid var(--bg-tertiary);
@@ -238,6 +280,7 @@ button {
   margin-bottom: 15px;
   box-shadow: 0 2px 5px var(--shadow);
   transition: transform var(--speed);
+  cursor: pointer;
 }
 
 .post-card:hover {
@@ -253,6 +296,12 @@ button {
   flex-direction: column;
   padding: 20px;
   overflow-y: auto;
+}
+
+.view-header {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 #post-detail-content {
@@ -278,6 +327,10 @@ pre[class^="language-"] {
   margin-bottom: 10px;
 }
 
+.post-description {
+  margin-bottom: 15px;
+}
+
 /* Comments */
 #comments-section {
   background: var(--bg-secondary);
@@ -286,6 +339,7 @@ pre[class^="language-"] {
 }
 
 #post-comments-feed .comment {
+  position: relative;
   background: var(--bg-tertiary);
   padding: 10px;
   border-radius: var(--radius);
