@@ -1,225 +1,144 @@
-document.addEventListener('DOMContentLoaded', () => {
-    // --- STATE MANAGEMENT ---
-    const state = {
-        currentView: 'chatroom', // 'chatroom', 'allPosts', 'singlePost'
-        activePostId: null,
-        posts: JSON.parse(localStorage.getItem('devhub_posts')) || [],
-        messages: JSON.parse(localStorage.getItem('devhub_messages')) || [],
-        comments: JSON.parse(localStorage.getItem('devhub_comments')) || [],
-    };
 
-    // --- DOM SELECTORS ---
-    const views = {
-        chatroom: document.getElementById('chatroom-view'),
-        allPosts: document.getElementById('all-posts-view'),
-        singlePost: document.getElementById('single-post-view'),
-    };
-    const navLinks = {
-        chatroom: document.getElementById('nav-chatroom'),
-        posts: document.getElementById('nav-posts'),
-    };
-    const chatFeed = document.getElementById('chat-feed');
-    const postsGrid = document.getElementById('posts-grid');
-    const postDetailContent = document.getElementById('post-detail-content');
-    const postCommentsFeed = document.getElementById('post-comments-feed');
-    const modal = document.getElementById('post-modal');
+/* --- GLOBAL STYLES & THEMES --- */
+:root {
+    --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --border-radius: 8px;
+    --transition-speed: 0.2s;
+    /* Light Mode */
+    --bg-primary: #e9ebee;
+    --bg-secondary: #ffffff;
+    --bg-tertiary: #f0f2f5;
+    --text-primary: #050505;
+    --text-secondary: #65676b;
+    --border-color: #ced0d4;
+    --accent-color: #1877f2;
+    --accent-hover: #166fe5;
+    --chat-bubble-me: #dcf8c6;
+    --shadow-color: rgba(0, 0, 0, 0.1);
+}
+body.dark-mode {
+    /* Dark Mode */
+    --bg-primary: #18191a;
+    --bg-secondary: #242526;
+    --bg-tertiary: #3a3b3c;
+    --text-primary: #e4e6eb;
+    --text-secondary: #b0b3b8;
+    --border-color: #4b4c4f;
+    --accent-color: #2d88ff;
+    --accent-hover: #4ea0ff;
+    --chat-bubble-me: #265c4c;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+}
+* { box-sizing: border-box; }
+body {
+    font-family: var(--font-family);
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    margin: 0;
+    overflow: hidden;
+    transition: background-color var(--transition-speed), color var(--transition-speed);
+}
+button { cursor: pointer; }
 
-    // --- DATA PERSISTENCE ---
-    const saveData = () => {
-        localStorage.setItem('devhub_posts', JSON.stringify(state.posts));
-        localStorage.setItem('devhub_messages', JSON.stringify(state.messages));
-        localStorage.setItem('devhub_comments', JSON.stringify(state.comments));
-    };
+/* --- NAVIGATION --- */
+.top-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--bg-secondary);
+    padding: 0 20px;
+    height: 60px;
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: 0 2px 5px var(--shadow-color);
+    position: relative;
+    z-index: 10;
+}
+.nav-title { font-size: 1.5rem; font-weight: bold; }
+.nav-links a { text-decoration: none; color: var(--text-secondary); font-weight: 600; padding: 20px 15px; border-bottom: 3px solid transparent; transition: color var(--transition-speed), border-color var(--transition-speed); }
+.nav-links a.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
+.nav-actions button { margin-left: 10px; padding: 8px 16px; border: none; border-radius: var(--border-radius); font-weight: 600; transition: background-color var(--transition-speed); }
+#create-post-btn { background-color: var(--accent-color); color: white; }
+#create-post-btn:hover { background-color: var(--accent-hover); }
+#theme-toggle { background: none; font-size: 1.5rem; border: none; color: var(--text-primary); }
 
-    // --- MAIN RENDER FUNCTION ---
-    const render = () => {
-        Object.values(views).forEach(view => view.classList.remove('active'));
-        Object.values(navLinks).forEach(link => link.classList.remove('active'));
+/* --- APP & VIEW CONTAINERS --- */
+#app-container { height: calc(100vh - 60px); }
+.view { display: none; height: 100%; flex-direction: column; }
+.view.active { display: flex; }
+.view-header { padding: 20px; border-bottom: 1px solid var(--border-color); background-color: var(--bg-secondary); }
+.view-header h1 { margin: 0; }
 
-        views[state.currentView].classList.add('active');
+/* --- CHATROOM VIEW --- */
+#chatroom-view { justify-content: flex-end; }
+#chat-feed { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 4px; }
+.message-wrapper { display: flex; flex-direction: column; max-width: 70%; margin-bottom: 8px; position: relative; }
+.message-wrapper.me { align-self: flex-end; }
+.message-wrapper.other { align-self: flex-start; }
+.message-wrapper.center { align-self: center; width: 90%; max-width: 500px; }
 
-        switch (state.currentView) {
-            case 'chatroom':
-                renderChatroom();
-                navLinks.chatroom.classList.add('active');
-                break;
-            case 'allPosts':
-                renderAllPosts();
-                navLinks.posts.classList.add('active');
-                break;
-            case 'singlePost':
-                renderSinglePost();
-                navLinks.posts.classList.add('active'); // Keep 'All Posts' active
-                break;
-        }
-    };
+.chat-bubble { padding: 10px 15px; border-radius: 18px; line-height: 1.4; word-wrap: break-word; }
+.chat-bubble.me { background-color: var(--chat-bubble-me); }
+.chat-bubble.other { background-color: var(--bg-secondary); }
 
-    // --- VIEW-SPECIFIC RENDERERS ---
-    const renderChatroom = () => {
-        const combinedFeed = [...state.posts, ...state.messages, ...state.comments]
-            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+.author-name { font-size: 0.8rem; font-weight: bold; margin: 0 12px 4px; color: var(--accent-color); }
+.message-wrapper.me .author-name { text-align: right; }
 
-        chatFeed.innerHTML = combinedFeed.map(item => {
-            if (item.type === 'post') return createPostHTML(item);
-            if (item.type === 'message') return createMessageHTML(item);
-            if (item.type === 'comment') {
-                const parentPost = state.posts.find(p => p.id === item.postId);
-                return createCommentHTML(item, parentPost);
-            }
-        }).join('');
-        chatFeed.scrollTop = chatFeed.scrollHeight;
-    };
-    
-    const renderAllPosts = () => {
-        postsGrid.innerHTML = state.posts.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).map(post => `
-            <div class="post-card" data-post-id="${post.id}">
-                <h3>${escapeHtml(post.title)}</h3>
-                <p>${escapeHtml(post.subject)}</p>
-            </div>`).join('');
-    };
-    
-    const renderSinglePost = () => {
-        const post = state.posts.find(p => p.id === state.activePostId);
-        if (!post) {
-            postDetailContent.innerHTML = `<h2>Post not found</h2><p>This post may have been deleted.</p>`;
-            postCommentsFeed.innerHTML = '';
-            return;
-        }
-        
-        postDetailContent.innerHTML = `
-            <h1>${escapeHtml(post.title)}</h1>
-            <p class="post-subject">Subject: ${escapeHtml(post.subject)}</p>
-            <p class="post-description">${escapeHtml(post.description)}</p>
-            <pre class="language-${escapeHtml(post.subject.toLowerCase())}"><code>${escapeHtml(post.code)}</code></pre>`;
+.reply-button {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    background-color: var(--bg-tertiary); border: 1px solid var(--border-color);
+    border-radius: 50%; width: 28px; height: 28px;
+    font-size: 1.2rem; cursor: pointer; opacity: 0; transition: opacity var(--transition-speed);
+}
+.message-wrapper:hover .reply-button { opacity: 1; }
+.message-wrapper.me .reply-button { left: -36px; }
+.message-wrapper.other .reply-button { right: -36px; }
 
-        const commentsForPost = state.comments.filter(c => c.postId === post.id)
-            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-            
-        postCommentsFeed.innerHTML = commentsForPost.map(comment => `<div class="comment">${escapeHtml(comment.text)}</div>`).join('');
-        
-        Prism.highlightAll();
-    };
+.quoted-reply {
+    background-color: rgba(0,0,0,0.05); margin: -5px 0 8px 0;
+    padding: 8px 12px; border-radius: 8px; border-left: 3px solid var(--accent-color);
+    font-size: 0.9em; color: var(--text-secondary);
+}
+.quoted-reply-author { font-weight: bold; color: var(--text-primary); }
+.quoted-reply-text {
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;
+}
 
-    // --- HTML TEMPLATE GENERATORS ---
-    const createMessageHTML = (item) => `<div class="chat-message me">${escapeHtml(item.text)}</div>`;
-    const createPostHTML = (item) => `
-        <div class="post-in-chat" data-post-id="${item.id}">
-            <h4>New Post: ${escapeHtml(item.title)}</h4>
-            <div class="post-subject">Subject: ${escapeHtml(item.subject)}</div>
-            <div class="post-actions">
-                <button class="view-post-btn">View Post</button>
-                <button class="copy-code-btn">Copy Code</button>
-            </div>
-        </div>`;
-    const createCommentHTML = (item, parentPost) => `
-        <div class="comment-in-chat" data-post-id="${item.postId}">
-            <div class="reply-quote">Reply to "${escapeHtml(parentPost?.title || 'a post')}"</div>
-            ${escapeHtml(item.text)}
-        </div>`;
+.post-in-chat { background-color: var(--bg-tertiary); border: 1px solid var(--border-color); padding: 15px; text-align: center; }
+.post-in-chat h4 { margin: 0 0 5px 0; font-size: 1.1rem; }
+.post-in-chat .post-subject { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px; }
+.post-in-chat .post-actions { display: flex; gap: 10px; justify-content: center; }
+.post-in-chat .post-actions button { padding: 8px 12px; border-radius: 6px; border: 1px solid var(--accent-color); background-color: transparent; color: var(--accent-color); font-weight: 600; }
 
-    // --- EVENT HANDLERS ---
-    const setupEventListeners = () => {
-        navLinks.chatroom.addEventListener('click', (e) => { e.preventDefault(); navigate('chatroom'); });
-        navLinks.posts.addEventListener('click', (e) => { e.preventDefault(); navigate('allPosts'); });
-        document.getElementById('back-to-chat-btn').addEventListener('click', () => navigate('chatroom'));
+#reply-indicator { padding: 10px; background-color: var(--bg-tertiary); border-top: 1px solid var(--border-color); display: none; }
+#reply-indicator .cancel-reply { float: right; cursor: pointer; font-weight: bold; }
 
-        document.getElementById('create-post-btn').addEventListener('click', () => { modal.classList.add('visible'); });
-        document.querySelector('.modal-close').addEventListener('click', () => { modal.classList.remove('visible'); });
-        modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.remove('visible'); });
+#chat-input-form { display: flex; padding: 10px; background-color: var(--bg-secondary); border-top: 1px solid var(--border-color); }
+#chat-input-form input { flex-grow: 1; padding: 12px; border-radius: 20px; border: 1px solid var(--border-color); background-color: var(--bg-tertiary); color: var(--text-primary); }
+#chat-input-form button { padding: 0 20px; margin-left: 10px; border: none; border-radius: 20px; background-color: var(--accent-color); color: white; font-weight: 600; }
 
-        document.getElementById('chat-input-form').addEventListener('submit', handleChatMessage);
-        document.getElementById('post-form').addEventListener('submit', handleCreatePost);
-        document.getElementById('comment-form').addEventListener('submit', handleAddComment);
+/* --- OTHER VIEWS --- */
+#all-posts-view, #single-post-view { overflow-y: auto; padding: 20px; }
+#posts-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+.post-card { background-color: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 20px; cursor: pointer; transition: transform var(--transition-speed), box-shadow var(--transition-speed); }
+.post-card:hover { transform: translateY(-5px); box-shadow: 0 5px 15px var(--shadow-color); }
+#post-detail-content { background-color: var(--bg-secondary); padding: 25px; border-radius: var(--border-radius); margin-bottom: 20px; }
+#comments-section { margin-top: 20px; background-color: var(--bg-secondary); padding: 20px; border-radius: var(--border-radius); }
+#post-comments-feed .comment { background-color: var(--bg-tertiary); padding: 15px; border-radius: var(--border-radius); margin-bottom: 10px; }
+#comment-form textarea { width: 100%; padding: 10px; border-radius: var(--border-radius); border: 1px solid var(--border-color); margin-bottom: 10px; background-color: var(--bg-tertiary); color: var(--text-primary); }
+#comment-form button { padding: 10px 20px; background-color: var(--accent-color); color: white; border: none; border-radius: var(--border-radius); }
 
-        document.body.addEventListener('click', (e) => {
-            const postId = e.target.closest('[data-post-id]')?.dataset.postId;
-            if (e.target.matches('.view-post-btn, .post-card, .post-card *')) {
-                if (postId) navigate('singlePost', postId);
-            }
-            if (e.target.matches('.copy-code-btn')) {
-                const post = state.posts.find(p => p.id === postId);
-                if (post) copyToClipboard(post.code);
-            }
-        });
-        document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
-    };
+/* --- MODAL --- */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 100; opacity: 0; transition: opacity var(--transition-speed); }
+.modal-overlay.visible { display: flex; opacity: 1; }
+.modal-content { background-color: var(--bg-secondary); padding: 30px; border-radius: var(--border-radius); width: 90%; max-width: 600px; position: relative; transform: scale(0.95); transition: transform var(--transition-speed); }
+.modal-overlay.visible .modal-content { transform: scale(1); }
+.modal-close { position: absolute; top: 10px; right: 15px; font-size: 1.5rem; background: none; border: none; color: var(--text-secondary); }
+.form-group { margin-bottom: 15px; }
+.form-group label { display: block; margin-bottom: 5px; font-weight: 600; }
+.form-group input, .form-group textarea { width: 100%; padding: 10px; border: 1px solid var(--border-color); border-radius: 6px; background-color: var(--bg-tertiary); color: var(--text-primary); }
+.modal-content button[type="submit"] { width: 100%; padding: 12px; background-color: var(--accent-color); color: white; border: none; border-radius: var(--border-radius); font-size: 1rem; }
 
-    const handleChatMessage = (e) => {
-        e.preventDefault();
-        const input = document.getElementById('chat-message-input');
-        if (!input.value.trim()) return;
-        state.messages.push({ id: `m_${Date.now()}`, type: 'message', text: input.value, timestamp: new Date().toISOString() });
-        input.value = '';
-        saveData();
-        renderChatroom();
-    };
-
-    const handleCreatePost = (e) => {
-        e.preventDefault();
-        const newPost = {
-            id: `p_${Date.now()}`, type: 'post',
-            title: document.getElementById('post-title').value,
-            subject: document.getElementById('post-subject').value,
-            description: document.getElementById('post-description').value,
-            code: document.getElementById('post-code').value,
-            timestamp: new Date().toISOString()
-        };
-        state.posts.push(newPost);
-        saveData();
-        modal.classList.remove('visible');
-        e.target.reset();
-        navigate('chatroom');
-    };
-
-    const handleAddComment = (e) => {
-        e.preventDefault();
-        const input = document.getElementById('comment-input');
-        if (!input.value.trim()) return;
-        state.comments.push({ id: `c_${Date.now()}`, type: 'comment', postId: state.activePostId, text: input.value, timestamp: new Date().toISOString() });
-        input.value = '';
-        saveData();
-        renderSinglePost();
-    };
-
-    // --- CORE & UTILITY FUNCTIONS ---
-    const navigate = (view, postId = null) => {
-        state.currentView = view;
-        state.activePostId = postId;
-        render();
-    };
-    
-    const copyToClipboard = (text) => {
-        navigator.clipboard.writeText(text).then(() => {
-            const notification = document.getElementById('copy-notification');
-            notification.classList.add('show');
-            setTimeout(() => notification.classList.remove('show'), 2000);
-        });
-    };
-    
-    const escapeHtml = (unsafe) => unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-    
-    const toggleTheme = () => {
-        document.body.classList.toggle('dark-mode');
-        const isDark = document.body.classList.contains('dark-mode');
-        document.getElementById('theme-toggle').textContent = isDark ? '☀️' : '🌙';
-        localStorage.setItem('devhub_theme', isDark ? 'dark' : 'light');
-    };
-    
-    const loadTheme = () => {
-        if (localStorage.getItem('devhub_theme') === 'dark') {
-            document.body.classList.add('dark-mode');
-            document.getElementById('theme-toggle').textContent = '☀️';
-        }
-    };
-
-    // --- INITIALIZATION ---
-    const init = () => {
-        loadTheme();
-        setupEventListeners();
-        render(); // Initial render
-    };
-
-    init();
-});
-
-
+/* --- UTILITIES --- */
+#copy-notification { position: fixed; bottom: -50px; left: 50%; transform: translateX(-50%); background-color: #28a745; color: white; padding: 10px 20px; border-radius: 20px; transition: all 0.3s; pointer-events: none; }
+#copy-notification.show { bottom: 30px; }
+pre[class*="language-"] { border-radius: var(--border-radius); }
