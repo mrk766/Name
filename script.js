@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
     activePostId: null,
     selectedSubject: null,
     isEditingPost: false,
+    favorites: JSON.parse(localStorage.getItem('devhub_favorites')) || [],
     posts: JSON.parse(localStorage.getItem('devhub_posts')) || [],
     messages: JSON.parse(localStorage.getItem('devhub_messages')) || [],
     comments: JSON.parse(localStorage.getItem('devhub_comments')) || [],
@@ -28,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     localStorage.setItem('devhub_posts', JSON.stringify(state.posts));
     localStorage.setItem('devhub_messages', JSON.stringify(state.messages));
     localStorage.setItem('devhub_comments', JSON.stringify(state.comments));
+    localStorage.setItem('devhub_favorites', JSON.stringify(state.favorites));
   };
 
   const escapeHtml = (unsafe) =>
@@ -38,15 +40,16 @@ document.addEventListener('DOMContentLoaded', () => {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
 
-  const copyToClipboard = (text) => {
+  const copyToClipboard = (text, message = 'Code copied!') => {
     navigator.clipboard.writeText(text).then(() => {
       const notify = document.getElementById('copy-notification');
+      notify.textContent = message;
       notify.classList.add('show');
       setTimeout(() => notify.classList.remove('show'), 2000);
     });
   };
 
-  const getSubjects = () => [...new Set(state.posts.map(p => p.subject))];
+  const getSubjects = () => [...new Set(state.posts.map(p => p.subject)), 'Favorites'];
 
   const ensureUsername = () => {
     if (!state.username) {
@@ -88,10 +91,15 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   const getItemText = (item) => {
-    if (item.type === 'message') return item.text;
-    if (item.type === 'post') return `${item.title} ${item.subject} ${item.description}`;
-    if (item.type === 'comment') return item.text;
+    if (item.type === 'message') return item.user + ' ' + item.text;
+    if (item.type === 'post') return item.user + ' ' + item.title + ' ' + item.subject + ' ' + item.description;
+    if (item.type === 'comment') return item.user + ' ' + item.text;
     return '';
+  };
+
+  const getAvatar = (user) => {
+    const color = '#' + ((Math.abs(user.charCodeAt(0) * user.length) % 0xffffff) | 0).toString(16).padStart(6, '0');
+    return `<span class="avatar" style="background-color: ${color};">${user[0].toUpperCase()}</span>`;
   };
 
   const renderChatroom = () => {
@@ -103,20 +111,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
     feed.innerHTML = combined.map(item => {
       const timestamp = new Date(item.timestamp).toLocaleString();
+      const avatar = getAvatar(item.user);
       if (item.type === 'message') {
         return `
-          <div class="chat-message" data-msg-id="${item.id}">
-            <span class="timestamp">${timestamp}</span>
-            <p>${escapeHtml(item.text)}</p>
-            <button class="delete-btn delete-msg" data-id="${item.id}">Delete</button>
+          <div class="chat-message me" data-msg-id="${item.id}">
+            ${avatar}
+            <div class="message-content">
+              <span class="user">${escapeHtml(item.user)}</span>
+              <div class="text">${marked.parse(item.text)}</div>
+              <span class="timestamp">${timestamp}</span>
+            </div>
+            <button class="delete-btn delete-msg" data-id="${item.id}">🗑️</button>
           </div>`;
       }
       if (item.type === 'post') {
+        const imageHtml = item.image ? `<img src="${item.image}" alt="Post image" class="post-image-thumbnail">` : '';
         return `
           <div class="activity-post" data-post-id="${item.id}">
-            <span class="timestamp">${timestamp}</span>
-            <h4>New Post: ${escapeHtml(item.title)}</h4>
-            <p>Subject: ${escapeHtml(item.subject)}</p>
+            ${avatar}
+            <div class="message-content">
+              <span class="user">${escapeHtml(item.user)}</span>
+              <h4>New Post: ${escapeHtml(item.title)}</h4>
+              <p>Subject: ${escapeHtml(item.subject)}</p>
+              ${imageHtml}
+              <span class="timestamp">${timestamp}</span>
+            </div>
             <div class="post-actions">
               <button class="view-post-btn" data-post-id="${item.id}">View</button>
               <button class="copy-code-btn" data-post-id="${item.id}">Copy Code</button>
@@ -127,10 +146,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const parent = state.posts.find(p => p.id === item.postId);
         return `
           <div class="activity-comment" data-comment-id="${item.id}">
-            <span class="timestamp">${timestamp}</span>
-            <div class="reply-quote">Comment on "${escapeHtml(parent?.title || 'a post')}":</div>
-            <p>${escapeHtml(item.text)}</p>
-            <button class="delete-btn delete-comment" data-id="${item.id}">Delete</button>
+            ${avatar}
+            <div class="message-content">
+              <span class="user">${escapeHtml(item.user)}</span>
+              <div class="reply-quote">Comment on "${escapeHtml(parent?.title || 'a post')}":</div>
+              <div class="text">${marked.parse(item.text)}</div>
+              <span class="timestamp">${timestamp}</span>
+            </div>
+            <button class="delete-btn delete-comment" data-id="${item.id}">🗑️</button>
           </div>`;
       }
     }).join('');
@@ -148,8 +171,12 @@ document.addEventListener('DOMContentLoaded', () => {
     subjectList.innerHTML = subjects.map(s =>
       `<li class="${s === state.selectedSubject ? 'active' : ''}" data-subject="${escapeHtml(s)}">${escapeHtml(s)}</li>`).join('');
 
-    const filteredPosts = state.posts.filter(p =>
-      !state.selectedSubject || p.subject === state.selectedSubject);
+    let filteredPosts = state.posts;
+    if (state.selectedSubject && state.selectedSubject !== 'Favorites') {
+      filteredPosts = filteredPosts.filter(p => p.subject === state.selectedSubject);
+    } else if (state.selectedSubject === 'Favorites') {
+      filteredPosts = filteredPosts.filter(p => state.favorites.includes(p.id));
+    }
 
     const sorted = [...filteredPosts].sort((a, b) => {
       if (postSort.value === 'oldest') return new Date(a.timestamp) - new Date(b.timestamp);
@@ -161,6 +188,8 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="post-card" data-post-id="${post.id}">
         <h4>${escapeHtml(post.title)}</h4>
         <p>${escapeHtml(post.subject)} • ${new Date(post.timestamp).toLocaleDateString()}</p>
+        ${post.image ? `<img src="${post.image}" alt="Post image" class="post-image-thumbnail">` : ''}
+        ${state.favorites.includes(post.id) ? '<span class="favorite-star">⭐</span>' : ''}
       </div>`).join('');
   };
 
@@ -168,24 +197,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const post = state.posts.find(p => p.id === state.activePostId);
     const content = document.getElementById('post-detail-content');
     const commentFeed = document.getElementById('post-comments-feed');
+    const favoriteBtn = document.getElementById('favorite-post-btn');
     if (!post) return content.innerHTML = `<h2>Post not found</h2>`;
+
+    const isFavorite = state.favorites.includes(post.id);
+    favoriteBtn.textContent = isFavorite ? '🌟 Unfavorite' : '⭐ Favorite';
+    const imageHtml = post.image ? `<img src="${post.image}" alt="Post image" class="post-image">` : '';
 
     content.innerHTML = `
       <div>
+        ${getAvatar(post.user)}
+        <span class="user">${escapeHtml(post.user)}</span>
         <button class="copy-btn" data-code="${escapeHtml(post.code)}">Copy Code</button>
         <h2>${escapeHtml(post.title)}</h2>
         <p><strong>Subject:</strong> ${escapeHtml(post.subject)}</p>
         <p><strong>Language:</strong> ${escapeHtml(post.language)}</p>
         <div class="post-description">${marked.parse(post.description)}</div>
+        ${imageHtml}
         <pre class="language-${escapeHtml(post.language || 'text')}"><code>${escapeHtml(post.code)}</code></pre>
       </div>`;
 
     const comments = state.comments.filter(c => c.postId === post.id).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
     commentFeed.innerHTML = comments.map(c => `
       <div class="comment" data-comment-id="${c.id}">
-        <span class="timestamp">${new Date(c.timestamp).toLocaleString()}</span>
-        <div>${marked.parse(c.text)}</div>
-        <button class="delete-btn delete-comment" data-id="${c.id}">Delete</button>
+        ${getAvatar(c.user)}
+        <div class="message-content">
+          <span class="user">${escapeHtml(c.user)}</span>
+          <div class="text">${marked.parse(c.text)}</div>
+          <span class="timestamp">${new Date(c.timestamp).toLocaleString()}</span>
+        </div>
+        <button class="delete-btn delete-comment" data-id="${c.id}">🗑️</button>
       </div>`).join('');
 
     Prism.highlightAll();
@@ -207,7 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('post-modal-title').textContent = 'Create a New Post';
       document.getElementById('post-form').reset();
       const datalist = document.getElementById('subject-options');
-      datalist.innerHTML = getSubjects().map(s => `<option value="${escapeHtml(s)}"></option>`).join('');
+      datalist.innerHTML = getSubjects().filter(s => s !== 'Favorites').map(s => `<option value="${escapeHtml(s)}"></option>`).join('');
       document.getElementById('post-modal').classList.add('visible');
     });
 
@@ -225,12 +266,13 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       ensureUsername();
       const input = document.getElementById('chat-message-input');
-      const msg = input.value.trim();
-      if (!msg) return;
+      const text = input.value.trim();
+      if (!text) return;
       state.messages.push({
         id: `msg_${Date.now()}`,
         type: 'message',
-        text: `${state.username}: ${msg}`,
+        user: state.username,
+        text,
         timestamp: new Date().toISOString()
       });
       input.value = '';
@@ -246,36 +288,52 @@ document.addEventListener('DOMContentLoaded', () => {
       const language = document.getElementById('post-language').value.trim();
       const description = document.getElementById('post-description').value;
       const code = document.getElementById('post-code').value;
-      if (state.isEditingPost) {
-        const post = state.posts.find(p => p.id === state.activePostId);
-        if (post) {
-          post.title = title;
-          post.subject = subject;
-          post.language = language;
-          post.description = description;
-          post.code = code;
-          post.timestamp = new Date().toISOString(); // Update timestamp
+      const imageInput = document.getElementById('post-image');
+      const handleImage = (callback) => {
+        if (imageInput.files && imageInput.files[0]) {
+          const reader = new FileReader();
+          reader.onload = (ev) => callback(ev.target.result);
+          reader.readAsDataURL(imageInput.files[0]);
+        } else {
+          callback(null);
         }
-      } else {
-        state.posts.push({
-          id: `post_${Date.now()}`,
-          type: 'post',
-          title,
-          subject,
-          language,
-          description,
-          code,
-          timestamp: new Date().toISOString()
-        });
-      }
-      saveData();
-      document.getElementById('post-modal').classList.remove('visible');
-      e.target.reset();
-      if (state.isEditingPost) {
-        render();
-      } else {
-        navigate('chatroom');
-      }
+      };
+
+      handleImage((image) => {
+        if (state.isEditingPost) {
+          const post = state.posts.find(p => p.id === state.activePostId);
+          if (post) {
+            post.title = title;
+            post.subject = subject;
+            post.language = language;
+            post.description = description;
+            post.code = code;
+            post.image = image || post.image;
+            post.timestamp = new Date().toISOString();
+          }
+        } else {
+          state.posts.push({
+            id: `post_${Date.now()}`,
+            type: 'post',
+            user: state.username,
+            title,
+            subject,
+            language,
+            description,
+            code,
+            image,
+            timestamp: new Date().toISOString()
+          });
+        }
+        saveData();
+        document.getElementById('post-modal').classList.remove('visible');
+        e.target.reset();
+        if (state.isEditingPost) {
+          render();
+        } else {
+          navigate('chatroom');
+        }
+      });
     });
 
     document.getElementById('comment-form').addEventListener('submit', (e) => {
@@ -287,7 +345,8 @@ document.addEventListener('DOMContentLoaded', () => {
         id: `c_${Date.now()}`,
         type: 'comment',
         postId: state.activePostId,
-        text: `${state.username}: ${text}`,
+        user: state.username,
+        text,
         timestamp: new Date().toISOString()
       });
       saveData();
@@ -305,8 +364,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('post-language').value = post.language;
         document.getElementById('post-description').value = post.description;
         document.getElementById('post-code').value = post.code;
+        // Can't prefill file input, but user can upload new
         const datalist = document.getElementById('subject-options');
-        datalist.innerHTML = getSubjects().map(s => `<option value="${escapeHtml(s)}"></option>`).join('');
+        datalist.innerHTML = getSubjects().filter(s => s !== 'Favorites').map(s => `<option value="${escapeHtml(s)}"></option>`).join('');
         document.getElementById('post-modal').classList.add('visible');
       }
     });
@@ -315,9 +375,21 @@ document.addEventListener('DOMContentLoaded', () => {
       if (confirm('Are you sure you want to delete this post?')) {
         state.posts = state.posts.filter(p => p.id !== state.activePostId);
         state.comments = state.comments.filter(c => c.postId !== state.activePostId);
+        state.favorites = state.favorites.filter(id => id !== state.activePostId);
         saveData();
         navigate('coderoom');
       }
+    });
+
+    document.getElementById('favorite-post-btn')?.addEventListener('click', () => {
+      const index = state.favorites.indexOf(state.activePostId);
+      if (index === -1) {
+        state.favorites.push(state.activePostId);
+      } else {
+        state.favorites.splice(index, 1);
+      }
+      saveData();
+      render();
     });
 
     document.body.addEventListener('click', (e) => {
@@ -369,6 +441,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('back-to-coderoom-btn')?.addEventListener('click', () => {
       navigate('coderoom');
+    });
+
+    document.getElementById('toggle-sidebar')?.addEventListener('click', () => {
+      document.querySelector('.coderoom-sidebar').classList.toggle('active');
     });
   };
 
