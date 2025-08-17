@@ -120,28 +120,51 @@ button {
   padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 15px;
 }
 
-.chat-message {
+.chat-message, .activity-post, .activity-comment {
+  display: flex;
+  align-items: flex-start;
   position: relative;
   max-width: 80%;
   padding: 10px 15px;
   background: var(--bg-secondary);
   border-radius: 16px;
+  align-self: flex-end;
 }
 
-.chat-message p {
+.message-content {
+  flex-grow: 1;
+}
+
+.user {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 5px;
+}
+
+.text {
   margin: 0;
 }
 
-.activity-post,
-.activity-comment {
-  position: relative;
-  background: var(--bg-secondary);
-  padding: 15px;
+.avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  margin-right: 10px;
+  flex-shrink: 0;
+}
+
+.post-image-thumbnail {
+  max-width: 100px;
   border-radius: var(--radius);
-  box-shadow: 0 1px 3px var(--shadow);
+  margin-top: 5px;
 }
 
 .activity-post h4,
@@ -159,7 +182,7 @@ button {
   display: block;
   font-size: 0.8em;
   color: var(--text-light);
-  margin-bottom: 5px;
+  margin-top: 5px;
 }
 
 .delete-btn {
@@ -169,7 +192,7 @@ button {
   background: transparent;
   border: none;
   color: var(--text-light);
-  font-size: 0.8em;
+  font-size: 1em;
 }
 
 .delete-btn:hover {
@@ -207,6 +230,20 @@ button {
   display: flex;
   flex-direction: row;
   overflow: hidden;
+  position: relative;
+}
+
+.sidebar-toggle {
+  display: none;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 10;
+  background: var(--accent);
+  color: white;
+  border: none;
+  padding: 8px;
+  border-radius: var(--radius);
 }
 
 .coderoom-sidebar {
@@ -215,6 +252,7 @@ button {
   background: var(--bg-secondary);
   border-right: 1px solid var(--bg-tertiary);
   overflow-y: auto;
+  transition: transform var(--speed);
 }
 
 .coderoom-sidebar h3 {
@@ -281,6 +319,7 @@ button {
   box-shadow: 0 2px 5px var(--shadow);
   transition: transform var(--speed);
   cursor: pointer;
+  position: relative;
 }
 
 .post-card:hover {
@@ -289,6 +328,13 @@ button {
 
 .post-card h4 {
   margin: 0 0 5px 0;
+}
+
+.favorite-star {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 1.2em;
 }
 
 /* Single Post */
@@ -309,6 +355,12 @@ button {
   padding: 20px;
   border-radius: var(--radius);
   margin-bottom: 20px;
+}
+
+.post-image {
+  max-width: 100%;
+  border-radius: var(--radius);
+  margin-bottom: 15px;
 }
 
 pre[class^="language-"] {
@@ -339,6 +391,8 @@ pre[class^="language-"] {
 }
 
 #post-comments-feed .comment {
+  display: flex;
+  align-items: flex-start;
   position: relative;
   background: var(--bg-tertiary);
   padding: 10px;
@@ -388,8 +442,10 @@ pre[class^="language-"] {
   padding: 30px;
   border-radius: var(--radius);
   width: 90%;
-  max-width: 500px;
+  max-width: 600px;
   position: relative;
+  overflow-y: auto;
+  max-height: 80vh;
 }
 
 .modal-close {
@@ -437,4 +493,57 @@ pre[class^="language-"] {
 
 #copy-notification.show {
   bottom: 30px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .top-nav {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .nav-links {
+    order: 3;
+    width: 100%;
+    text-align: center;
+  }
+
+  .nav-actions {
+    order: 2;
+  }
+
+  #coderoom-view {
+    flex-direction: column;
+  }
+
+  .sidebar-toggle {
+    display: block;
+  }
+
+  .coderoom-sidebar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    transform: translateX(-100%);
+    z-index: 5;
+  }
+
+  .coderoom-sidebar.active {
+    transform: translateX(0);
+  }
+
+  .coderoom-posts {
+    padding-top: 50px;
+  }
+
+  .chat-message, .activity-post, .activity-comment {
+    max-width: 100%;
+  }
+
+  .modal-content {
+    width: 95%;
+    padding: 20px;
+  }
 }
