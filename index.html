@@ -32,13 +32,14 @@
       </div>
       <div id="chat-feed"></div>
       <form id="chat-input-form">
-        <input type="text" id="chat-message-input" placeholder="Type a message..." autocomplete="off" required />
+        <input type="text" id="chat-message-input" placeholder="Type a message (Markdown supported)..." autocomplete="off" required />
         <button type="submit">Send</button>
       </form>
     </div>
 
     <!-- Coderoom View -->
     <div id="coderoom-view" class="view">
+      <button id="toggle-sidebar" class="sidebar-toggle">☰ Subjects</button>
       <div class="coderoom-sidebar">
         <h3>Subjects</h3>
         <ul id="subject-list"></ul>
@@ -61,6 +62,7 @@
     <div id="single-post-view" class="view">
       <div class="view-header">
         <button id="back-to-coderoom-btn">← Back</button>
+        <button id="favorite-post-btn">⭐ Favorite</button>
         <button id="edit-post-btn">Edit Post</button>
         <button id="delete-post-btn">Delete Post</button>
       </div>
@@ -69,7 +71,7 @@
         <h2>Comments</h2>
         <div id="post-comments-feed"></div>
         <form id="comment-form">
-          <textarea id="comment-input" placeholder="Add a comment..." required rows="3"></textarea>
+          <textarea id="comment-input" placeholder="Add a comment (Markdown supported)..." required rows="3"></textarea>
           <button type="submit">Post Comment</button>
         </form>
       </div>
@@ -97,11 +99,15 @@
         </div>
         <div class="form-group">
           <label for="post-description">Description (Markdown supported)</label>
-          <textarea id="post-description" rows="2"></textarea>
+          <textarea id="post-description" rows="4"></textarea>
         </div>
         <div class="form-group">
           <label for="post-code">Code Snippet</label>
           <textarea id="post-code" rows="10" required></textarea>
+        </div>
+        <div class="form-group">
+          <label for="post-image">Upload Image (optional)</label>
+          <input type="file" id="post-image" accept="image/*" />
         </div>
         <button type="submit">Publish Post</button>
       </form>
@@ -119,7 +125,7 @@
   </div>
 
   <!-- Copy Notification -->
-  <div id="copy-notification">Code copied!</div>
+  <div id="copy-notification">Copied!</div>
 
   <!-- Scripts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
