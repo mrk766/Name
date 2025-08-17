@@ -1,14 +1,17 @@
 document.addEventListener('DOMContentLoaded', () => {
+  // State Management
   const state = {
     currentView: 'chatroom',
     activePostId: null,
+    selectedSubject: null,
+    isEditingPost: false,
     posts: JSON.parse(localStorage.getItem('devhub_posts')) || [],
     messages: JSON.parse(localStorage.getItem('devhub_messages')) || [],
     comments: JSON.parse(localStorage.getItem('devhub_comments')) || [],
     username: localStorage.getItem('devhub_username') || null,
-    selectedSubject: null,
   };
 
+  // DOM Elements
   const views = {
     chatroom: document.getElementById('chatroom-view'),
     coderoom: document.getElementById('coderoom-view'),
@@ -20,6 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     coderoom: document.getElementById('nav-coderoom'),
   };
 
+  // Utility Functions
   const saveData = () => {
     localStorage.setItem('devhub_posts', JSON.stringify(state.posts));
     localStorage.setItem('devhub_messages', JSON.stringify(state.messages));
@@ -42,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  const getSubjects = () => [...new Set(state.posts.map(p => p.subject.trim().toLowerCase()))];
+  const getSubjects = () => [...new Set(state.posts.map(p => p.subject))];
 
   const ensureUsername = () => {
     if (!state.username) {
@@ -66,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
     render();
   };
 
+  // View Switching
   const switchView = () => {
     Object.values(views).forEach(v => v.classList.remove('active'));
     Object.values(navLinks).forEach(l => l.classList.remove('active'));
@@ -74,6 +79,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.currentView === 'coderoom') navLinks.coderoom.classList.add('active');
   };
 
+  // Rendering Functions
   const render = () => {
     switchView();
     if (state.currentView === 'chatroom') renderChatroom();
@@ -81,33 +87,51 @@ document.addEventListener('DOMContentLoaded', () => {
     if (state.currentView === 'singlePost') renderSinglePost();
   };
 
+  const getItemText = (item) => {
+    if (item.type === 'message') return item.text;
+    if (item.type === 'post') return `${item.title} ${item.subject} ${item.description}`;
+    if (item.type === 'comment') return item.text;
+    return '';
+  };
+
   const renderChatroom = () => {
     const feed = document.getElementById('chat-feed');
-    const combined = [...state.messages, ...state.posts, ...state.comments].sort((a, b) =>
-      new Date(a.timestamp) - new Date(b.timestamp)
-    );
+    const search = document.getElementById('chat-search')?.value.toLowerCase() || '';
+    const combined = [...state.messages, ...state.posts, ...state.comments]
+      .filter(item => getItemText(item).toLowerCase().includes(search))
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
     feed.innerHTML = combined.map(item => {
+      const timestamp = new Date(item.timestamp).toLocaleString();
       if (item.type === 'message') {
-        return `<div class="chat-message me">${escapeHtml(item.text)}</div>`;
+        return `
+          <div class="chat-message" data-msg-id="${item.id}">
+            <span class="timestamp">${timestamp}</span>
+            <p>${escapeHtml(item.text)}</p>
+            <button class="delete-btn delete-msg" data-id="${item.id}">Delete</button>
+          </div>`;
       }
       if (item.type === 'post') {
         return `
-          <div class="post-in-chat" data-post-id="${item.id}">
-            <h4>${escapeHtml(item.title)}</h4>
-            <p class="post-subject">${escapeHtml(item.subject)}</p>
+          <div class="activity-post" data-post-id="${item.id}">
+            <span class="timestamp">${timestamp}</span>
+            <h4>New Post: ${escapeHtml(item.title)}</h4>
+            <p>Subject: ${escapeHtml(item.subject)}</p>
             <div class="post-actions">
-              <button class="view-post-btn">View</button>
-              <button class="copy-code-btn">Copy</button>
+              <button class="view-post-btn" data-post-id="${item.id}">View</button>
+              <button class="copy-code-btn" data-post-id="${item.id}">Copy Code</button>
             </div>
           </div>`;
       }
       if (item.type === 'comment') {
         const parent = state.posts.find(p => p.id === item.postId);
-        return `<div class="comment-in-chat">
-          <div class="reply-quote">Reply to "${parent?.title || 'a post'}"</div>
-          ${escapeHtml(item.text)}
-        </div>`;
+        return `
+          <div class="activity-comment" data-comment-id="${item.id}">
+            <span class="timestamp">${timestamp}</span>
+            <div class="reply-quote">Comment on "${escapeHtml(parent?.title || 'a post')}":</div>
+            <p>${escapeHtml(item.text)}</p>
+            <button class="delete-btn delete-comment" data-id="${item.id}">Delete</button>
+          </div>`;
       }
     }).join('');
 
@@ -122,10 +146,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const subjects = getSubjects();
     subjectList.innerHTML = subjects.map(s =>
-      `<li class="${s === state.selectedSubject ? 'active' : ''}" data-subject="${s}">${s}</li>`).join('');
+      `<li class="${s === state.selectedSubject ? 'active' : ''}" data-subject="${escapeHtml(s)}">${escapeHtml(s)}</li>`).join('');
 
     const filteredPosts = state.posts.filter(p =>
-      !state.selectedSubject || p.subject.trim().toLowerCase() === state.selectedSubject);
+      !state.selectedSubject || p.subject === state.selectedSubject);
 
     const sorted = [...filteredPosts].sort((a, b) => {
       if (postSort.value === 'oldest') return new Date(a.timestamp) - new Date(b.timestamp);
@@ -148,18 +172,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     content.innerHTML = `
       <div>
-        <button class="copy-btn" onclick="navigator.clipboard.writeText(\`${post.code}\`)">Copy</button>
+        <button class="copy-btn" data-code="${escapeHtml(post.code)}">Copy Code</button>
         <h2>${escapeHtml(post.title)}</h2>
         <p><strong>Subject:</strong> ${escapeHtml(post.subject)}</p>
-        <p>${escapeHtml(post.description)}</p>
-        <pre class="language-${escapeHtml(post.subject)}"><code>${escapeHtml(post.code)}</code></pre>
+        <p><strong>Language:</strong> ${escapeHtml(post.language)}</p>
+        <div class="post-description">${marked.parse(post.description)}</div>
+        <pre class="language-${escapeHtml(post.language || 'text')}"><code>${escapeHtml(post.code)}</code></pre>
       </div>`;
-    
-    const comments = state.comments.filter(c => c.postId === post.id);
-    commentFeed.innerHTML = comments.map(c => `<div class="comment">${escapeHtml(c.text)}</div>`).join('');
+
+    const comments = state.comments.filter(c => c.postId === post.id).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+    commentFeed.innerHTML = comments.map(c => `
+      <div class="comment" data-comment-id="${c.id}">
+        <span class="timestamp">${new Date(c.timestamp).toLocaleString()}</span>
+        <div>${marked.parse(c.text)}</div>
+        <button class="delete-btn delete-comment" data-id="${c.id}">Delete</button>
+      </div>`).join('');
+
     Prism.highlightAll();
   };
 
+  // Event Listeners Setup
   const setupEventListeners = () => {
     navLinks.chatroom.addEventListener('click', (e) => {
       e.preventDefault(); navigate('chatroom');
@@ -171,9 +203,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('create-post-btn').addEventListener('click', () => {
       ensureUsername();
-      document.getElementById('post-modal').classList.add('visible');
+      state.isEditingPost = false;
+      document.getElementById('post-modal-title').textContent = 'Create a New Post';
+      document.getElementById('post-form').reset();
       const datalist = document.getElementById('subject-options');
-      datalist.innerHTML = getSubjects().map(s => `<option value="${s}"></option>`).join('');
+      datalist.innerHTML = getSubjects().map(s => `<option value="${escapeHtml(s)}"></option>`).join('');
+      document.getElementById('post-modal').classList.add('visible');
     });
 
     document.querySelector('.modal-close').addEventListener('click', () => {
@@ -206,20 +241,41 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('post-form').addEventListener('submit', (e) => {
       e.preventDefault();
       ensureUsername();
-      const title = document.getElementById('post-title').value;
-      const subject = document.getElementById('post-subject').value.toLowerCase();
+      const title = document.getElementById('post-title').value.trim();
+      const subject = document.getElementById('post-subject').value.trim();
+      const language = document.getElementById('post-language').value.trim();
       const description = document.getElementById('post-description').value;
       const code = document.getElementById('post-code').value;
-      state.posts.push({
-        id: `post_${Date.now()}`,
-        type: 'post',
-        title, subject, description, code,
-        timestamp: new Date().toISOString()
-      });
+      if (state.isEditingPost) {
+        const post = state.posts.find(p => p.id === state.activePostId);
+        if (post) {
+          post.title = title;
+          post.subject = subject;
+          post.language = language;
+          post.description = description;
+          post.code = code;
+          post.timestamp = new Date().toISOString(); // Update timestamp
+        }
+      } else {
+        state.posts.push({
+          id: `post_${Date.now()}`,
+          type: 'post',
+          title,
+          subject,
+          language,
+          description,
+          code,
+          timestamp: new Date().toISOString()
+        });
+      }
       saveData();
       document.getElementById('post-modal').classList.remove('visible');
       e.target.reset();
-      navigate('chatroom');
+      if (state.isEditingPost) {
+        render();
+      } else {
+        navigate('chatroom');
+      }
     });
 
     document.getElementById('comment-form').addEventListener('submit', (e) => {
@@ -239,28 +295,67 @@ document.addEventListener('DOMContentLoaded', () => {
       render();
     });
 
+    document.getElementById('edit-post-btn')?.addEventListener('click', () => {
+      const post = state.posts.find(p => p.id === state.activePostId);
+      if (post) {
+        state.isEditingPost = true;
+        document.getElementById('post-modal-title').textContent = 'Edit Post';
+        document.getElementById('post-title').value = post.title;
+        document.getElementById('post-subject').value = post.subject;
+        document.getElementById('post-language').value = post.language;
+        document.getElementById('post-description').value = post.description;
+        document.getElementById('post-code').value = post.code;
+        const datalist = document.getElementById('subject-options');
+        datalist.innerHTML = getSubjects().map(s => `<option value="${escapeHtml(s)}"></option>`).join('');
+        document.getElementById('post-modal').classList.add('visible');
+      }
+    });
+
+    document.getElementById('delete-post-btn')?.addEventListener('click', () => {
+      if (confirm('Are you sure you want to delete this post?')) {
+        state.posts = state.posts.filter(p => p.id !== state.activePostId);
+        state.comments = state.comments.filter(c => c.postId !== state.activePostId);
+        saveData();
+        navigate('coderoom');
+      }
+    });
+
     document.body.addEventListener('click', (e) => {
-      const postId = e.target.closest('[data-post-id]')?.dataset.postId;
-      if (e.target.matches('.view-post-btn') || e.target.closest('.post-card')) {
+      const target = e.target;
+      const postId = target.dataset.postId || target.closest('[data-post-id]')?.dataset.postId;
+      const id = target.dataset.id;
+
+      if (target.matches('.view-post-btn') || target.closest('.post-card')) {
         if (postId) navigate('singlePost', postId);
       }
-      if (e.target.matches('.copy-code-btn')) {
-        const post = state.posts.find(p => p.id === postId);
-        if (post) copyToClipboard(post.code);
+      if (target.matches('.copy-code-btn') || target.matches('.copy-btn')) {
+        const code = target.dataset.code || state.posts.find(p => p.id === postId)?.code;
+        if (code) copyToClipboard(code);
       }
-      if (e.target.closest('#subject-list li')) {
-        const subject = e.target.dataset.subject;
+      if (target.closest('#subject-list li')) {
+        const subject = target.dataset.subject;
         navigate('coderoom', null, subject);
+      }
+      if (target.matches('.delete-msg')) {
+        state.messages = state.messages.filter(m => m.id !== id);
+        saveData();
+        render();
+      }
+      if (target.matches('.delete-comment')) {
+        state.comments = state.comments.filter(c => c.id !== id);
+        saveData();
+        render();
       }
     });
 
     document.getElementById('post-sort')?.addEventListener('change', render);
     document.getElementById('post-search')?.addEventListener('input', render);
+    document.getElementById('chat-search')?.addEventListener('input', render);
     document.getElementById('subject-search')?.addEventListener('input', (e) => {
       const filter = e.target.value.toLowerCase();
       const allSubs = document.querySelectorAll('#subject-list li');
       allSubs.forEach(li => {
-        li.style.display = li.dataset.subject.includes(filter) ? 'block' : 'none';
+        li.style.display = li.dataset.subject.toLowerCase().includes(filter) ? 'block' : 'none';
       });
     });
 
@@ -277,6 +372,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
+  // Theme Loading
   const loadTheme = () => {
     const stored = localStorage.getItem('devhub_theme');
     if (stored === 'dark') {
@@ -285,6 +381,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   };
 
+  // Initialization
   const init = () => {
     loadTheme();
     setupEventListeners();
