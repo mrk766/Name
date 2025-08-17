@@ -9,6 +9,7 @@
   <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet"/>
 </head>
 <body>
+  <!-- Navbar -->
   <nav class="top-nav">
     <div class="nav-title">DevHub</div>
     <div class="nav-links">
@@ -21,8 +22,9 @@
     </div>
   </nav>
 
+  <!-- App Container -->
   <main id="app-container">
-    <!-- CHATROOM -->
+    <!-- Chatroom View -->
     <div id="chatroom-view" class="view active">
       <div id="chat-feed"></div>
       <form id="chat-input-form">
@@ -31,7 +33,7 @@
       </form>
     </div>
 
-    <!-- CODEROOM -->
+    <!-- Coderoom View -->
     <div id="coderoom-view" class="view">
       <div class="coderoom-sidebar">
         <h3>Subjects</h3>
@@ -44,14 +46,14 @@
           <select id="post-sort">
             <option value="latest">Last Modified</option>
             <option value="oldest">First Modified</option>
-            <option value="most">Most Posts</option>
+            <option value="az">A–Z</option>
           </select>
         </div>
         <div id="coderoom-posts-container"></div>
       </div>
     </div>
 
-    <!-- SINGLE POST VIEW -->
+    <!-- Single Post View -->
     <div id="single-post-view" class="view">
       <div class="view-header">
         <button id="back-to-coderoom-btn">← Back</button>
@@ -68,7 +70,7 @@
     </div>
   </main>
 
-  <!-- CREATE POST MODAL -->
+  <!-- Create Post Modal -->
   <div id="post-modal" class="modal-overlay">
     <div class="modal-content">
       <button class="modal-close">&times;</button>
@@ -91,16 +93,12 @@
           <label for="post-code">Code Snippet</label>
           <textarea id="post-code" rows="10" required></textarea>
         </div>
-        <div class="form-group">
-          <label for="post-number">Post Number (1–10)</label>
-          <input type="number" id="post-number" min="1" max="10" />
-        </div>
         <button type="submit">Publish Post</button>
       </form>
     </div>
   </div>
 
-  <!-- LOGIN MODAL -->
+  <!-- Login Modal -->
   <div id="login-modal" class="modal-overlay">
     <div class="modal-content">
       <h2>Enter Your Name</h2>
