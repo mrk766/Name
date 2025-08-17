@@ -2,37 +2,33 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- STATE MANAGEMENT ---
     const state = {
         username: localStorage.getItem('devhub_username') || null,
-        currentView: 'chatroom',
+        currentView: 'coderoomSubjects', // coderoomSubjects, coderoomPosts, chatroom, singlePost
+        activeSubject: null,
         activePostId: null,
-        replyingTo: null, // NEW: Holds the message object we are replying to
         posts: JSON.parse(localStorage.getItem('devhub_posts')) || [],
         messages: JSON.parse(localStorage.getItem('devhub_messages')) || [],
         comments: JSON.parse(localStorage.getItem('devhub_comments')) || [],
     };
 
     // --- DOM SELECTORS ---
-    const views = { chatroom: document.getElementById('chatroom-view'), allPosts: document.getElementById('all-posts-view'), singlePost: document.getElementById('single-post-view') };
-    const navLinks = { chatroom: document.getElementById('nav-chatroom'), posts: document.getElementById('nav-posts') };
-    const chatFeed = document.getElementById('chat-feed');
-    const postsGrid = document.getElementById('posts-grid');
-    const postDetailContent = document.getElementById('post-detail-content');
-    const postCommentsFeed = document.getElementById('post-comments-feed');
+    const views = {
+        coderoomSubjects: document.getElementById('coderoom-subjects-view'),
+        coderoomPosts: document.getElementById('coderoom-posts-view'),
+        chatroom: document.getElementById('chatroom-view'),
+        singlePost: document.getElementById('single-post-view'),
+    };
+    const navLinks = { coderoom: document.getElementById('nav-coderoom'), chatroom: document.getElementById('nav-chatroom') };
     const modal = document.getElementById('post-modal');
-    const replyIndicator = document.getElementById('reply-indicator');
 
-    // --- DATA PERSISTENCE ---
+    // --- DATA & USER MANAGEMENT ---
     const saveData = () => {
         localStorage.setItem('devhub_username', state.username);
         localStorage.setItem('devhub_posts', JSON.stringify(state.posts));
-        localStorage.setItem('devhub_messages', JSON.stringify(state.messages));
-        localStorage.setItem('devhub_comments', JSON.stringify(state.comments));
+        // ... save other data
     };
-
-    // --- USER MANAGEMENT ---
     const ensureUserExists = () => {
         if (state.username) return true;
-        
-        const name = prompt("Please enter your name to post:");
+        const name = prompt("Please enter your name to continue:");
         if (name && name.trim()) {
             state.username = name.trim();
             saveData();
@@ -40,166 +36,155 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return false;
     };
-    
-    // --- MAIN RENDER FUNCTION ---
-    const render = () => {
-        Object.values(views).forEach(view => view.classList.remove('active'));
-        Object.values(navLinks).forEach(link => link.classList.remove('active'));
-        views[state.currentView].classList.add('active');
 
-        switch (state.currentView) {
-            case 'chatroom': renderChatroom(); navLinks.chatroom.classList.add('active'); break;
-            case 'allPosts': renderAllPosts(); navLinks.posts.classList.add('active'); break;
-            case 'singlePost': renderSinglePost(); navLinks.posts.classList.add('active'); break;
+    // --- NAVIGATION & RENDERING ---
+    const navigate = (view, context = null) => {
+        state.currentView = view;
+        Object.values(views).forEach(v => v.classList.remove('active'));
+        Object.values(navLinks).forEach(l => l.classList.remove('active'));
+        views[view].classList.add('active');
+
+        switch (view) {
+            case 'coderoomSubjects':
+                renderSubjects();
+                navLinks.coderoom.classList.add('active');
+                break;
+            case 'coderoomPosts':
+                state.activeSubject = context;
+                document.getElementById('posts-view-title').textContent = `${state.activeSubject} Posts`;
+                renderPostsForSubject();
+                navLinks.coderoom.classList.add('active');
+                break;
+            case 'chatroom':
+                renderChatroom();
+                navLinks.chatroom.classList.add('active');
+                break;
+            case 'singlePost':
+                state.activePostId = context;
+                renderSinglePost();
+                navLinks.coderoom.classList.add('active');
+                break;
         }
     };
     
-    // --- VIEW-SPECIFIC RENDERERS ---
-    const renderChatroom = () => {
-        const combinedFeed = [...state.posts, ...state.messages, ...state.comments]
-            .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-
-        chatFeed.innerHTML = combinedFeed.map(item => {
-            const wrapperClass = item.author === state.username ? 'me' : 'other';
-            let contentHTML = '';
-
-            if (item.type === 'post') {
-                contentHTML = createPostHTML(item);
-            } else {
-                const bubbleClass = item.author === state.username ? 'me' : 'other';
-                let replyHTML = '';
-                if (item.replyToId) {
-                    const originalItem = findItemById(item.replyToId);
-                    replyHTML = createQuotedReplyHTML(originalItem);
-                }
-                
-                if (item.type === 'message') {
-                    contentHTML = `${replyHTML}<div class="chat-bubble ${bubbleClass}">${escapeHtml(item.text)}</div>`;
-                } else if (item.type === 'comment') {
-                    contentHTML = `${replyHTML}<div class="chat-bubble ${bubbleClass}">Comment on post: ${escapeHtml(item.text)}</div>`;
-                }
-            }
-            
-            // Posts are centered, messages have authors
-            if(item.type === 'post') {
-                 return `<div class="message-wrapper center" data-id="${item.id}">${contentHTML}</div>`;
-            } else {
-                 return `<div class="message-wrapper ${wrapperClass}" data-id="${item.id}">
-                    <div class="author-name">${escapeHtml(item.author)}</div>
-                    ${contentHTML}
-                    <button class="reply-button">↪</button>
-                </div>`;
-            }
-
-        }).join('');
-        chatFeed.scrollTop = chatFeed.scrollHeight;
+    const renderSubjects = () => {
+        const subjectsGrid = document.getElementById('subjects-grid');
+        const subjects = [...new Set(state.posts.map(p => p.subject))];
+        if (subjects.length === 0) {
+            subjectsGrid.innerHTML = `<p>No subjects found. Create a post to add one!</p>`;
+            return;
+        }
+        subjectsGrid.innerHTML = subjects.map(s => `<div class="subject-card" data-subject="${s}">${s}</div>`).join('');
     };
-    
-    const renderAllPosts = () => { /* ... (no changes) ... */ };
-    const renderSinglePost = () => { /* ... (no changes, but now shows author) ... */ };
-    
-    // --- HTML TEMPLATE GENERATORS ---
-    const createPostHTML = (item) => `...`; // Updated to show author
-    const createQuotedReplyHTML = (originalItem) => {
-        if (!originalItem) return '';
-        let textSnippet = '';
-        if (originalItem.type === 'post') textSnippet = `Post: ${originalItem.title}`;
-        else textSnippet = originalItem.text || `Comment: ${originalItem.text}`;
 
-        return `
-            <div class="quoted-reply">
-                <div class="quoted-reply-author">${escapeHtml(originalItem.author)}</div>
-                <span class="quoted-reply-text">${escapeHtml(textSnippet)}</span>
+    const renderPostsForSubject = () => {
+        const postList = document.getElementById('post-list');
+        const searchTerm = document.getElementById('post-search-bar').value.toLowerCase();
+        const sortBy = document.getElementById('post-sort-select').value;
+        
+        let posts = state.posts.filter(p => p.subject === state.activeSubject);
+        if (searchTerm) {
+            posts = posts.filter(p => p.title.toLowerCase().includes(searchTerm));
+        }
+
+        posts.sort((a, b) => {
+            if (sortBy === 'newest') return new Date(b.timestamp) - new Date(a.timestamp);
+            if (sortBy === 'oldest') return new Date(a.timestamp) - new Date(b.timestamp);
+            if (sortBy === 'number') return a.postNumber - b.postNumber;
+            return 0;
+        });
+
+        postList.innerHTML = posts.map(p => `
+            <li class="post-list-item" data-post-id="${p.id}">
+                <a>
+                    <h4>${p.title}</h4>
+                    <div class="post-meta">By ${p.author} on ${new Date(p.timestamp).toLocaleDateString()}</div>
+                </a>
+            </li>`).join('');
+    };
+
+    const renderSinglePost = () => {
+        const post = state.posts.find(p => p.id === state.activePostId);
+        const contentDiv = document.getElementById('post-detail-content');
+        if (!post) {
+            contentDiv.innerHTML = 'Post not found.';
+            return;
+        }
+        contentDiv.innerHTML = `
+            <h1>${post.title}</h1>
+            <p>By ${post.author} | Subject: ${post.subject} | Post #: ${post.postNumber}</p>
+            <p>${post.description}</p>
+            <div class="code-snippet-container">
+                <div class="code-snippet-header">
+                    <span class="code-snippet-lang">${post.subject.toLowerCase()}</span>
+                    <button class="copy-code-btn" data-code="${btoa(post.code)}">Copy</button>
+                </div>
+                <pre><code class="language-${post.subject.toLowerCase()}">${escapeHtml(post.code)}</code></pre>
             </div>`;
-    };
-
-    // --- REPLY MANAGEMENT ---
-    const handleReplyClick = (itemId) => {
-        state.replyingTo = findItemById(itemId);
-        if (state.replyingTo) {
-            replyIndicator.innerHTML = `
-                <div class="quoted-reply">
-                    Replying to <strong>${escapeHtml(state.replyingTo.author)}</strong>
-                    <span class="cancel-reply" title="Cancel Reply">×</span>
-                </div>`;
-            replyIndicator.style.display = 'block';
-            replyIndicator.querySelector('.cancel-reply').addEventListener('click', cancelReply);
-        }
-    };
-    const cancelReply = () => {
-        state.replyingTo = null;
-        replyIndicator.style.display = 'none';
-    };
-
-    // --- EVENT HANDLERS ---
-    const setupEventListeners = () => {
-        // ... (navigation and modal listeners are the same)
-        document.getElementById('chat-input-form').addEventListener('submit', handleChatMessage);
-        document.getElementById('post-form').addEventListener('submit', handleCreatePost);
-        document.getElementById('comment-form').addEventListener('submit', handleAddComment);
-        
-        // NEW: Event delegation for reply buttons
-        chatFeed.addEventListener('click', (e) => {
-            if (e.target.classList.contains('reply-button')) {
-                const messageWrapper = e.target.closest('.message-wrapper');
-                if (messageWrapper) handleReplyClick(messageWrapper.dataset.id);
-            }
-        });
+        Prism.highlightAll();
+        // Render comments for the post as well
+        renderCommentsForPost();
     };
     
-    const handleChatMessage = (e) => {
-        e.preventDefault();
-        if (!ensureUserExists()) return;
-        const input = document.getElementById('chat-message-input');
-        if (!input.value.trim()) return;
-        
-        state.messages.push({
-            id: `m_${Date.now()}`, type: 'message',
-            author: state.username,
-            text: input.value,
-            timestamp: new Date().toISOString(),
-            replyToId: state.replyingTo ? state.replyingTo.id : null,
-        });
-        input.value = '';
-        cancelReply();
-        saveData();
-        renderChatroom();
-    };
+    const renderCommentsForPost = () => { /* Logic to render comments in single post view */ };
+    const renderChatroom = () => { /* Your existing chatroom render logic */ };
 
+    // --- EVENT LISTENERS ---
+    const setupEventListeners = () => {
+        navLinks.coderoom.addEventListener('click', () => navigate('coderoomSubjects'));
+        navLinks.chatroom.addEventListener('click', () => navigate('chatroom'));
+        document.getElementById('create-post-btn').addEventListener('click', () => {
+            if (ensureUserExists()) modal.classList.add('visible');
+        });
+        document.getElementById('post-form').addEventListener('submit', handleCreatePost);
+        document.getElementById('back-to-subjects-btn').addEventListener('click', () => navigate('coderoomSubjects'));
+        document.getElementById('back-to-posts-btn').addEventListener('click', () => navigate('coderoomPosts', state.activeSubject));
+        document.getElementById('post-search-bar').addEventListener('input', renderPostsForSubject);
+        document.getElementById('post-sort-select').addEventListener('change', renderPostsForSubject);
+
+        // Event delegation for dynamic content
+        document.body.addEventListener('click', (e) => {
+            const subjectCard = e.target.closest('.subject-card');
+            const postListItem = e.target.closest('.post-list-item');
+            const copyBtn = e.target.closest('.copy-code-btn');
+
+            if (subjectCard) navigate('coderoomPosts', subjectCard.dataset.subject);
+            if (postListItem) navigate('singlePost', postListItem.dataset.postId);
+            if (copyBtn) {
+                const decodedCode = atob(copyBtn.dataset.code);
+                navigator.clipboard.writeText(decodedCode);
+                copyBtn.textContent = 'Copied!';
+                setTimeout(() => { copyBtn.textContent = 'Copy'; }, 2000);
+            }
+        });
+        // Add chat/comment form submit listeners that call ensureUserExists()
+    };
+    
+    // --- FORM HANDLERS ---
     const handleCreatePost = (e) => {
         e.preventDefault();
-        if (!ensureUserExists()) return;
-        // ... (rest of the function is the same, just add author)
-        const newPost = { id: `p_${Date.now()}`, type: 'post', author: state.username, /* ... */ };
+        const newPost = {
+            id: `p_${Date.now()}`,
+            author: state.username,
+            title: document.getElementById('post-title').value,
+            subject: document.getElementById('post-subject').value,
+            postNumber: parseInt(document.getElementById('post-number').value, 10),
+            description: document.getElementById('post-description').value,
+            code: document.getElementById('post-code').value,
+            timestamp: new Date().toISOString()
+        };
         state.posts.push(newPost);
-        // ...
+        saveData();
+        modal.classList.remove('visible');
+        e.target.reset();
+        navigate('coderoomPosts', newPost.subject);
     };
 
-    const handleAddComment = (e) => {
-        e.preventDefault();
-        if (!ensureUserExists()) return;
-        // ... (rest of the function is the same, just add author and replyToId)
-        state.comments.push({ id: `c_${Date.now()}`, type: 'comment', author: state.username, postId: state.activePostId, /* ... */ });
-        // ...
-    };
-
-    // --- UTILITIES ---
-    const findItemById = (id) => {
-        return [...state.posts, ...state.messages, ...state.comments].find(item => item.id === id);
-    };
+    // --- UTILITIES & INIT ---
     const escapeHtml = (unsafe) => unsafe.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
-    
-    // --- INITIALIZATION ---
-    // ... (same as before)
-
-    // Helper functions for renderAllPosts and renderSinglePost (simplified for brevity, they have no logic changes)
-    const renderAllPosts = () => { postsGrid.innerHTML = state.posts.sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp)).map(post => `<div class="post-card" data-post-id="${post.id}"><h3>${escapeHtml(post.title)}</h3><p>By ${escapeHtml(post.author)}</p></div>`).join(''); };
-    const renderSinglePost = () => { const post = state.posts.find(p => p.id === state.activePostId); if(!post) return; postDetailContent.innerHTML = `<h1>${escapeHtml(post.title)}</h1><p>By ${escapeHtml(post.author)}</p><p>${escapeHtml(post.description)}</p><pre><code>${escapeHtml(post.code)}</code></pre>`; const commentsForPost = state.comments.filter(c => c.postId === post.id); postCommentsFeed.innerHTML = commentsForPost.map(comment => `<div class="comment"><strong>${escapeHtml(comment.author)}:</strong> ${escapeHtml(comment.text)}</div>`).join(''); Prism.highlightAll();};
-    
-    // ... (rest of the init code from previous version)
-    const navigate = (view, postId = null) => { state.currentView = view; state.activePostId = postId; render(); };
-    const toggleTheme = () => { document.body.classList.toggle('dark-mode'); const isDark = document.body.classList.contains('dark-mode'); document.getElementById('theme-toggle').textContent = isDark ? '☀️' : '🌙'; localStorage.setItem('devhub_theme', isDark ? 'dark' : 'light'); };
-    const loadTheme = () => { if (localStorage.getItem('devhub_theme') === 'dark') { document.body.classList.add('dark-mode'); document.getElementById('theme-toggle').textContent = '☀️'; } };
-    const init = () => { loadTheme(); setupEventListeners(); render(); };
+    const init = () => {
+        setupEventListeners();
+        navigate('coderoomSubjects'); // Start in the Coderoom
+    };
     init();
 });
