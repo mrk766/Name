@@ -57,21 +57,33 @@ button { cursor: pointer; }
 pre[class*="language-"] { margin: 0 !important; padding: 15px !important; box-shadow: none !important; }
 
 /* --- CHATROOM --- */
-/* (Styles for chatroom are largely the same as the previous version) */
 #chatroom-view { justify-content: flex-end; }
 #chat-feed { flex-grow: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 4px; }
 .message-wrapper { display: flex; flex-direction: column; max-width: 70%; margin-bottom: 8px; position: relative; }
 .message-wrapper.me { align-self: flex-end; }
 .message-wrapper.other { align-self: flex-start; }
+.message-wrapper.center { align-self: center; width: 90%; max-width: 500px; }
 .chat-bubble { padding: 10px 15px; border-radius: 18px; line-height: 1.4; word-wrap: break-word; }
 .chat-bubble.me { background-color: var(--chat-bubble-me); }
 .chat-bubble.other { background-color: var(--bg-secondary); }
 .author-name { font-size: 0.8rem; font-weight: bold; margin: 0 12px 4px; color: var(--accent-color); }
+.message-wrapper.me .author-name { text-align: right; }
+.reply-button { position: absolute; top: 50%; transform: translateY(-50%); background-color: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 50%; width: 28px; height: 28px; font-size: 1.2rem; cursor: pointer; opacity: 0; transition: opacity var(--transition-speed); }
+.message-wrapper:hover .reply-button { opacity: 1; }
+.message-wrapper.me .reply-button { left: -36px; }
+.message-wrapper.other .reply-button { right: -36px; }
+.quoted-reply { background-color: rgba(0,0,0,0.05); margin: -5px 0 8px 0; padding: 8px 12px; border-radius: 8px; border-left: 3px solid var(--accent-color); font-size: 0.9em; color: var(--text-secondary); }
+.quoted-reply-author { font-weight: bold; color: var(--text-primary); }
+.quoted-reply-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; }
+#reply-indicator { padding: 10px; background-color: var(--bg-tertiary); border-top: 1px solid var(--border-color); display: none; }
+#reply-indicator .cancel-reply { float: right; cursor: pointer; font-weight: bold; }
 #chat-input-form { display: flex; padding: 10px; background-color: var(--bg-secondary); border-top: 1px solid var(--border-color); }
 #chat-input-form input { flex-grow: 1; padding: 12px; border-radius: 20px; border: 1px solid var(--border-color); background-color: var(--bg-tertiary); color: var(--text-primary); }
 #chat-input-form button { padding: 0 20px; margin-left: 10px; border: none; border-radius: 20px; background-color: var(--accent-color); color: white; }
 
-/* (Modal and other utility styles remain the same) */
+/* --- COMMENTS & MODAL --- */
+#comments-section { margin-top: 20px; background-color: var(--bg-secondary); padding: 20px; border-radius: var(--border-radius); }
+#post-comments-feed .comment { background-color: var(--bg-tertiary); padding: 15px; border-radius: var(--border-radius); margin-bottom: 10px; }
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 100; opacity: 0; }
 .modal-overlay.visible { display: flex; opacity: 1; }
 .modal-content { background-color: var(--bg-secondary); padding: 30px; border-radius: var(--border-radius); width: 90%; max-width: 600px; }
